@@ -10,9 +10,6 @@ class Graph:
         self.node_map[node_id] = new_node
         return new_node
     
-    def get_nodes(self):
-        return self.node_map.values()
-    
     def is_valid_node_id(self, node_id):
         if (node_id not in self.node_map):
             return False
@@ -23,11 +20,17 @@ class Graph:
             self.node_map[node_one].add_neighbour(self.node_map[node_two])
             self.node_map[node_two].add_neighbour(self.node_map[node_one])
     
-    def get_edges(self, node):
+    def get_node(self, node):
         return self.node_map[node]
     
     def get_degree(self, node):
         return self.node_map[node].get_degree()
+    
+    def get_num_nodes(self):
+        return self.num_nodes
+    
+    def get_nodes(self):
+        return self.node_map.values()
     
     def __repr__(self):
         result = ''
