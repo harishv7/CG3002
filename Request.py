@@ -20,3 +20,5 @@ for node in body["map"]:
         g.add_edge(node_id, int(link_to[i]))
 
 print(g)
+shortest_path = Dijkstra(g, 1)
+shortest_path.dist_to_node(2)
