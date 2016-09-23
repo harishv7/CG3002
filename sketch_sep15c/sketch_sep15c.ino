@@ -19,7 +19,7 @@ const int IMU_PIN_SCL = 21;
 
 // Poll periods declaration (in ms)
 
-const int UART_PERIOD = 500;
+const int UART_PERIOD = 550;
 const int US_PERIOD = 500;
 const int IR_PERIOD = 2000;
 const int DC_PERIOD = 100;
@@ -124,10 +124,10 @@ void uartWrite() {
     }
 
     sendBuffer[0] = size;
-    sendBuffer[size+1] = checksum;
-    sendBuffer[size+2] = '\r';    
+//    sendBuffer[size+1] = checksum;
+    sendBuffer[size+1] = '\r';    
 
-    Serial1.write(sendBuffer, size + 3);
+    Serial1.write(sendBuffer, size + 2);
   }
 
 //  if (irValue[0] != NAN) {
