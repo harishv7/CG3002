@@ -47,6 +47,7 @@ float imuGyrValue_Z = NAN;
 float imuBarValue = NAN;
 
 char sendBuffer[75]; // For transmitting data onto Arduino's USART
+char readBuffer[50];
 
 void initializePins();
 void initializeTimers();
@@ -89,11 +90,11 @@ void initializePins() {
 void initializeTimers() {
   timer1 = new CSmartTimer(STIMER1);
   timer1 -> attachCallback(uartWrite, UART_PERIOD);
-  timer1 -> attachCallback(uartRead, UART_PERIOD);
+//  timer1 -> attachCallback(uartRead, UART_PERIOD);
 
   timer2 = new CSmartTimer(STIMER2);
   timer2 -> attachCallback(usRead, US_PERIOD);
-  timer2 -> attachCallback(irRead, IR_PERIOD);
+//  timer2 -> attachCallback(irRead, IR_PERIOD);
   timer2 -> attachCallback(dcWrite, DC_PERIOD);
 
   timer3 = new CSmartTimer(STIMER3);
@@ -124,10 +125,10 @@ void uartWrite() {
     }
 
     sendBuffer[0] = size;
-//    sendBuffer[size+1] = checksum;
-    sendBuffer[size+1] = '\r';    
+    sendBuffer[size+1] = '\r';
+    sendBuffer[size+2] = checksum;    
 
-    Serial1.write(sendBuffer, size + 2);
+    Serial1.write(sendBuffer, size + 3);
   }
 
 //  if (irValue[0] != NAN) {
@@ -136,9 +137,17 @@ void uartWrite() {
 }
 
 void uartRead() {
-//  if (Serial1.available()) {
-//    int receivedByte = Serial1.read();
-//  }
+  int i = 0;
+  
+  while (Serial1.available()) {
+    readBuffer[i] = Serial1.read();
+    i++;
+  }
+
+  int number;
+  sscanf(readBuffer, "%d", &number);
+  int value = number + 10; 
+  Serial.println(value);
 }
 
 void usRead() {
@@ -156,21 +165,21 @@ void usRead() {
 }
 
 void irRead() {
-//    for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
-//      int divisor = analogRead(IR_PIN[i]);
-//      if (divisor <= 3) {
-//        irValue[i] = NAN;
-//      } else {
-//        irValue[i] = 6786.0 / (divisor - 3.0) - 4.0;
-//      }
-//    }
-//
-//    Serial.println("IR:");
-//    for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
-//      Serial.println(irValue[i]);
-//    }
-//
-//    Serial.println();
+    for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
+      int divisor = analogRead(IR_PIN[i]);
+      if (divisor <= 3) {
+        irValue[i] = NAN;
+      } else {
+        irValue[i] = 6786.0 / (divisor - 3.0) - 4.0;
+      }
+    }
+
+    Serial.println("IR:");
+    for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
+      Serial.println(irValue[i]);
+    }
+
+    Serial.println();
 }
 
 void dcWrite() {
