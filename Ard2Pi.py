@@ -6,11 +6,13 @@ def readlineCR(port):
         temp = []
         data = []
         ch = port.read()
-        size = 0
+        checksum = 0
+        xor = 0
         size = int(binascii.hexlify(ch), 16)
         ch = port.read()
         
         while (ch != b'\r' and ch != b''):
+                xor = xor ^ int(binascii.hexlify(ch), 16)
                 # If the len of arr is less than 4,
                 # we add it to the array after converting the received
                 # bytes into hexadecimal
@@ -23,14 +25,18 @@ def readlineCR(port):
                         temp.append(binascii.hexlify(ch))
                 ch = port.read()
 
-        # Append the last reading into the return data
+        
         try:
+                # Append the last reading into the return data
                 data.append(convert_to_float(temp)[0])
+
+                # Read checksum
+                checksum = int(binascii.hexlify(port.read()), 16)
         except:
                 print("Exception")
 
         # Return a tuple containing the size and data
-        return (size, data)
+        return (size, checksum, xor, data)
 
 # Convert the array of bytes into float rep
 def convert_to_float(data):
@@ -54,5 +60,3 @@ while True:
                 data = readlineCR(port)
                 print("Iteration " + str(ctr))
                 print(data)
-
-                
