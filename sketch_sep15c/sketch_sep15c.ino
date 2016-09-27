@@ -28,6 +28,15 @@ const int IMU_MAG_PERIOD = 320;
 const int IMU_GYR_PERIOD = 10;
 const int IMU_BAR_PERIOD = 1000;
 
+// Packet codes declaration
+
+const int SYN = 0;
+const int SYNACK = 1;
+const int ACK = 2;
+const int NAK = 3;
+const int DATA_REG = 4;
+const int DATA_GYRO = 5; 
+
 CSmartTimer *timer1;
 CSmartTimer *timer2;
 CSmartTimer *timer3;
