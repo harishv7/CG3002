@@ -3,60 +3,59 @@ import struct
 import binascii
 
 def readlineCR(port):
-        temp = []
-        data = []
-        ch = port.read()
-        checksum = 0
-        xor = 0
-        size = int(binascii.hexlify(ch), 16)
-        ch = port.read()
+    temp = []
+    data = []
+    checksum = 0
+    computed_checksum = 0
+    
+    # Read the op code
+    current_byte = port.read()
+    size = int(binascii.hexlify(current_byte), 16)
+    
+    current_byte = port.read()
+    while (current_byte != b'\r' and current_byte != b''):
+        # Convert the current_byte to hex format
+        current_hex = binascii.hexlify(current_byte)
+        # Update the computed_checksum by xor-ing with the newly acquired data
+        computed_checksum = computed_checksum ^ int(current_hex, 16)
+        # If length is < 4, keep appending
+        if(len(temp) < 4):
+            temp.append(current_hex)
+        else:
+            current_float = convert_to_float(temp)
+            data.append(current_float[0])
+            temp = []
+            temp.append(current_hex)
         
-        while (ch != b'\r' and ch != b''):
-                xor = xor ^ int(binascii.hexlify(ch), 16)
-                # If the len of arr is less than 4,
-                # we add it to the array after converting the received
-                # bytes into hexadecimal
-                if(len(temp) < 4):
-                        temp.append(binascii.hexlify(ch))
-                else:
-                        b = convert_to_float(temp)
-                        data.append(b[0])
-                        temp = []
-                        temp.append(binascii.hexlify(ch))
-                ch = port.read()
-
+        current_byte = port.read()
         
-        try:
-                # Append the last reading into the return data
-                data.append(convert_to_float(temp)[0])
-
-                # Read checksum
-                checksum = int(binascii.hexlify(port.read()), 16)
-        except:
-                print("Exception")
-
-        # Return a tuple containing the size and data
-        return (size, checksum, xor, data)
+    try:
+        # Append the last reading into the return data
+        data.append(convert_to_float(temp)[0])
+        
+        # Read checksum
+        checksum = int(binascii.hexlify(port.read()), 16)
+    except:
+        print("InvalidArgumentException")
+        
+    # Return a tuple containing the size and data
+    return (size, checksum, computed_checksum, data)
 
 # Convert the array of bytes into float rep
 def convert_to_float(data):
-        data.reverse()
-        int_data = [int(x, 16) for x in data]
-        b = struct.pack('4B', *int_data)
-        b = struct.unpack('>f', b)
-        return b
+    data.reverse()
+    int_data = [int(x, 16) for x in data]
+    float_result = struct.pack('4B', *int_data)
+    float_result = struct.unpack('>f', b)
+    return float_result
 
 port = serial.Serial(
-          "/dev/ttyAMA0",
-          baudrate = 115200,
-          timeout = 0
-          )
-
-ctr = 0
+    "/dev/ttyAMA0",
+    baudrate = 115200,
+    timeout = 0
+)
 
 while True:
-        if (port.inWaiting() > 0):
-                ctr += 1
-                data = readlineCR(port)
-                print("Iteration " + str(ctr))
-                print(data)
+    if (port.inWaiting() > 0):
+        buffer_data = readlineCR(port)
+        print(buffer_data)

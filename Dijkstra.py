@@ -1,20 +1,21 @@
 import heapq
 
+# This class implements the Dijkstra algorithm and various utility methods related to it
 class Dijkstra:
     
     def __init__(self, graph, source):
         num_nodes = graph.get_num_nodes()
-        self.dist_to = []  # distance of shortest s->v path
-        self.edge_to = []  # last edge on shortest s->v path
+        self.source_id = source
+        self.dist_to = {}  # distance of shortest s->v path
+        self.prev = {}  # previous node on shortest s->v path
         self.pq = [] # priority queue of vertices
         
-        print("num of nodes in graph: " + str(num_nodes))
+        nodes = graph.get_nodes()
         
-        for i in range(0, num_nodes):
-            self.dist_to.append(math.inf)
-            self.edge_to.append(None)
-        print(self.dist_to)
-        print(self.edge_to)
+        for node in nodes:
+            node_id = node.get_id()
+            self.dist_to[node_id] = math.inf
+            self.prev[node_id] = None
         self.dist_to[source] = 0.0
         
         # relax vertices in order of distance from s
@@ -22,21 +23,24 @@ class Dijkstra:
         while(len(self.pq)):
             v = heapq.heappop(self.pq)[0]
             for neighbour in graph.get_node(v).get_neighbours():
-                print(neighbour)
-                self.__relax(graph.get_node(v), neighbour)
+                weight = graph.get_node(v).calculate_manhattan_distance_to(neighbour)
+                self.__relax(v, neighbour.get_id(), weight)
                 
-    def __relax(self, v, w):
-            weight = v.calculate_dist_to(w)
-            weight = weight[0] + weight[1]
-            v_id = v.get_id()
-            w_id = w.get_id()
-            if (self.dist_to[w_id] > self.dist_to[v_id] + weight):
-                self.dist_to[w_id] = self.dist_to[v_id] + weight
-                self.edge_to[w_id] = (v, w)
-            else:
-                heapq.heappush(w, self.dist_to[w_id])
+    def __relax(self, v_id, w_id, weight):            
+        # get the index, since we start from 1, we need to minus one
+        if (self.dist_to[w_id] > self.dist_to[v_id] + weight):
+            self.dist_to[w_id] = self.dist_to[v_id] + weight
+            self.prev[w_id] = v_id
+            heapq.heappush(self.pq, (w_id, self.dist_to[w_id]))
                 
     def dist_to_node(self, v):
-        print(self.dist_to[v])
         return self.dist_to[v]
-                 
+    
+    def get_path(self, target_id):
+        path = []
+        current_node_id = target_id
+        while (current_node_id != self.source_id):
+            path.append(current_node_id)
+            current_node_id = self.prev[current_node_id]
+        path.append(current_node_id)
+        return path[::-1]
