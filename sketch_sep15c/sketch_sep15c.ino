@@ -19,7 +19,9 @@ const int IMU_PIN_SCL = 21;
 
 // Poll periods declaration (in ms)
 
-const int UART_PERIOD = 550;
+const int UART_GYRO_WRITE_PERIOD = 20;
+const int UART_DATA_WRITE_PERIOD = 500;
+const int UART_READ_PERIOD = 500;
 const int US_PERIOD = 500;
 const int IR_PERIOD = 2000;
 const int DC_PERIOD = 100;
@@ -34,7 +36,7 @@ const int SYN = 0;
 const int SYNACK = 1;
 const int ACK = 2;
 const int NAK = 3;
-const int DATA_REG = 4;
+const int DATA = 4;
 const int DATA_GYRO = 5; 
 
 CSmartTimer *timer1;
@@ -58,9 +60,13 @@ float imuBarValue = NAN;
 char sendBuffer[75]; // For transmitting data onto Arduino's USART
 char readBuffer[50];
 
+char is_SYN_Received = -1;
+char is_SYNACK_Received = -1;
+
 void initializePins();
 void initializeTimers();
-void uartWrite();
+void uartGyroWrite();
+void uartDataWrite();
 void uartRead();
 void usRead();
 void irRead();
@@ -98,7 +104,8 @@ void initializePins() {
 
 void initializeTimers() {
   timer1 = new CSmartTimer(STIMER1);
-  timer1 -> attachCallback(uartWrite, UART_PERIOD);
+//  timer1 -> attachCallback(uartGyroWrite, UART_GYRO_WRITE_PERIOD);
+  timer1 -> attachCallback(uartDataWrite, UART_DATA_WRITE_PERIOD);
 //  timer1 -> attachCallback(uartRead, UART_PERIOD);
 
   timer2 = new CSmartTimer(STIMER2);
@@ -117,32 +124,38 @@ void initializeTimers() {
   timer3 -> startTimer();
 }
 
-void uartWrite() {
+void uartDataWrite() {
   char checksum = 0;
   char size = 0;
+  char packet_code = DATA;
   
   if (usValue[0] != NAN) {
-    memcpy(sendBuffer + 1, usValue, sizeof(usValue));
+    memcpy(sendBuffer + 2, usValue, sizeof(usValue));
     size += sizeof(usValue);
     
     for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
       usValue[i] = NAN; 
     }
      
-    for (int j = 1; j <= size; j++) {
+    for (int j = 2; j <= size + 1; j++) {
       checksum ^= sendBuffer[j];
     }
 
-    sendBuffer[0] = size;
-    sendBuffer[size+1] = '\r';
-    sendBuffer[size+2] = checksum;    
+    sendBuffer[0] = packet_code;
+    sendBuffer[1] = size;
+    sendBuffer[size + 2] = '\r';
+    sendBuffer[size + 3] = checksum;    
 
-    Serial1.write(sendBuffer, size + 3);
+    Serial1.write(sendBuffer, size + 4);
   }
 
 //  if (irValue[0] != NAN) {
 //    memcpy(buf+1, usValue, sizeof(irValue) / sizeof(float));
 //  }
+}
+
+void uartGyroWrite() {
+  
 }
 
 void uartRead() {
