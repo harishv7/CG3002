@@ -8,10 +8,10 @@ class Graph:
         self.node_map = {}
         self.num_nodes = 0
         self.edges = []
-        self.north_degree = None
+        self.north_angle = None
         
         if (json is not None):
-            self.north_degree = json["info"]["northAt"]
+            self.north_angle = float(json["info"]["northAt"])
             for node in json["map"]:
                 node_id = int(node["nodeId"])
                 x = int(node["x"])
@@ -61,6 +61,12 @@ class Graph:
     def get_nodes(self):
         return self.node_map.values()
     
+    def get_edges(self):
+        return self.edges
+    
+    def get_north_angle(self):
+        return self.north_angle
+    
     # This method returns the nearest edge from a point in cartesian coordinate
     def get_nearest_edge_from_point(self, x, y):
         nearest_edge = None
@@ -96,7 +102,7 @@ class Graph:
         result = "Nodes in this graph:\n"
         for node in self.node_map.values():
             result += str(node) + "\n"
-        result += "North is at " + self.north_degree + " degrees"
+        result += "North is at " + str(self.north_angle) + " degrees"
         return result
     
     def __str__(self):

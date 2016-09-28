@@ -44,9 +44,10 @@ class Node:
         return self.adj
     
     # This method returns the rotation difference from a given point with a given heading angle (in degrees relative to North)
-    def get_rotation_difference_from_point(self, x, y, heading_angle):
+    def get_rotation_difference_from_point(self, x, y, heading_angle, north_angle):
         target_rotation_relative_to_east = math.atan2(self.y - y, self.x - x) * -Constant.DEGREE_TO_RADIAN_RATIO
-        target_rotation_relative_to_north = target_rotation_relative_to_east + Constant.EAST_TO_NORTH_ANGLE - heading_angle
+        target_rotation_relative_to_north = (target_rotation_relative_to_east + Constant.EAST_TO_NORTH_ANGLE - 
+                                             heading_angle - north_angle)
         # Normalize the target rotation angle to (-180, 180]
         if (target_rotation_relative_to_north <= -180):
             target_rotation_relative_to_north += 360

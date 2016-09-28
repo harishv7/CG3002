@@ -29,7 +29,7 @@ while (True):
 
     nearest_edge = g.get_nearest_edge_from_point(x, y)
     nearest_node = nearest_edge.get_nearest_node_from_point(x, y)
-    rotate_direction = nearest_node.get_rotation_difference_from_point(x, y, heading_angle)
+    rotate_direction = nearest_node.get_rotation_difference_from_point(x, y, heading_angle, g.get_north_angle())
     walk_distance = nearest_node.calculate_euclidean_distance_from_point(x, y)
 
     print("The nearest edge is: ")
