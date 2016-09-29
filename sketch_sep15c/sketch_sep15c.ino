@@ -1,7 +1,7 @@
 #include <smartTimer.h>
 #include <math.h>
 
-// Sensors and actuators pins declaration
+// Sensors and Actuators pins declaration
 
 const int UART_PIN_TX = 18;
 const int UART_PIN_RX = 19;
@@ -39,10 +39,6 @@ const int NAK = 3;
 const int DATA = 4;
 const int DATA_GYRO = 5; 
 
-CSmartTimer *timer1;
-CSmartTimer *timer2;
-CSmartTimer *timer3;
-
 float usValue[] = { NAN, NAN, NAN, NAN };
 float irValue[] = { NAN, NAN, NAN, NAN };
 float dcValue = NAN;
@@ -58,10 +54,17 @@ float imuGyrValue_Z = NAN;
 float imuBarValue = NAN;
 
 char sendBuffer[75]; // For transmitting data onto Arduino's USART
-char readBuffer[50];
+char readBuffer[50]; // For receiving data from Arduino's USART
 
-char is_SYN_Received = -1;
-char is_SYNACK_Received = -1;
+// For Handshake protocol between Arduino and RPi
+
+boolean is_Handshake_Successful = false;
+boolean is_SYN_Received = false;
+boolean is_SYNACK_Received = false;
+
+CSmartTimer *timer1;
+CSmartTimer *timer2;
+CSmartTimer *timer3;
 
 void initializePins();
 void initializeTimers();
@@ -106,7 +109,7 @@ void initializeTimers() {
   timer1 = new CSmartTimer(STIMER1);
 //  timer1 -> attachCallback(uartGyroWrite, UART_GYRO_WRITE_PERIOD);
   timer1 -> attachCallback(uartDataWrite, UART_DATA_WRITE_PERIOD);
-//  timer1 -> attachCallback(uartRead, UART_PERIOD);
+  timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
 
   timer2 = new CSmartTimer(STIMER2);
   timer2 -> attachCallback(usRead, US_PERIOD);
@@ -125,28 +128,28 @@ void initializeTimers() {
 }
 
 void uartDataWrite() {
+  char payloadSize = 0;
+  char packetCode = DATA;
   char checksum = 0;
-  char size = 0;
-  char packet_code = DATA;
   
   if (usValue[0] != NAN) {
     memcpy(sendBuffer + 2, usValue, sizeof(usValue));
-    size += sizeof(usValue);
+    payloadSize += sizeof(usValue);
     
     for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
       usValue[i] = NAN; 
     }
      
-    for (int j = 2; j <= size + 1; j++) {
+    for (int j = 2; j <= payloadSize + 1; j++) {
       checksum ^= sendBuffer[j];
     }
 
-    sendBuffer[0] = packet_code;
-    sendBuffer[1] = size;
-    sendBuffer[size + 2] = '\r';
-    sendBuffer[size + 3] = checksum;    
+    sendBuffer[0] = packetCode;
+    sendBuffer[1] = payloadSize;
+    sendBuffer[payloadSize + 2] = '\r';
+    sendBuffer[payloadSize + 3] = checksum;    
 
-    Serial1.write(sendBuffer, size + 4);
+    Serial1.write(sendBuffer, payloadSize + 4);
   }
 
 //  if (irValue[0] != NAN) {
@@ -160,16 +163,41 @@ void uartGyroWrite() {
 
 void uartRead() {
   int i = 0;
-  
-  while (Serial1.available()) {
-    readBuffer[i] = Serial1.read();
-    i++;
-  }
 
-  int number;
-  sscanf(readBuffer, "%d", &number);
-  int value = number + 10; 
-  Serial.println(value);
+  if (is_Handshake_Successful == false) {
+    if (is_SYN_Received == false) {
+      while (is_SYN_Received == false) {
+        if (Serial1.available()) {
+          char rpi_Packet1 = Serial1.read();
+        
+          if (rpi_Packet1 == SYN) {
+            is_SYN_Received = true;
+          }
+        }
+      }
+    } else if (is_SYNACK_Received == false) {
+      while (is_SYNACK_Received == false) {
+        if (Serial1.available()) {
+          char rpi_Packet2 = Serial1.read();
+
+          if (rpi_Packet2 == SYNACK) {
+            is_SYNACK_Received = true;
+            is_Handshake_Successful = true;
+          }
+        }
+      }
+    }
+  } else {
+    while (Serial1.available()) {
+      readBuffer[i] = Serial1.read();
+      i++;
+    }
+
+    int number;
+    sscanf(readBuffer, "%d", &number);
+    int value = number + 10; 
+    Serial.println(value);
+  }
 }
 
 void usRead() {
