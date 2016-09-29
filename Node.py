@@ -22,6 +22,9 @@ class Node:
     def calculate_euclidean_distance_from_point(self, x, y):
         return GraphUtility.calculate_euclidean_distance(x, y, self.x, self.y)
     
+    def calculate_euclidean_distance_from_node(self, source_node):
+        return self.calculate_euclidean_distance_from_point(source_node.get_x(), source_node.get_y())
+    
     def add_neighbour(self, neighbour):
         self.adj[neighbour] = self.calculate_vector_to(neighbour)
     
@@ -55,6 +58,11 @@ class Node:
             target_rotation_relative_to_north -= 360
             
         return target_rotation_relative_to_north
+    
+    # This method returns the rotation difference from a given node with a given heading angle (in degrees relative to North)
+    def get_rotation_difference_from_node(self, source_node, heading_angle, north_angle):
+        return self.get_rotation_difference_from_point(source_node.get_x(), source_node.get_y(), 
+                                                       heading_angle, north_angle)
     
     def __repr__(self):
         return ("Node id: " + str(self.id) + ", "

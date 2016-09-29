@@ -28,7 +28,7 @@ class Graph:
             print(self)
     
     def add_node(self, node_id, x, y, node_name):
-        self.num_nodes = self.num_nodes + 1
+        self.num_nodes += 1
         new_node = Node(node_id, x, y, node_name)
         self.node_map[node_id] = new_node
         return new_node
