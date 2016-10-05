@@ -32,12 +32,12 @@ const int IMU_BAR_PERIOD = 1000;
 
 // Packet codes declaration
 
-const int SYN = 0;
-const int SYNACK = 1;
-const int ACK = 2;
-const int NAK = 3;
-const int DATA = 4;
-const int DATA_GYRO = 5; 
+const char SYN = 0;
+const char SYNACK = 1;
+const char ACK = 2;
+const char NACK = 3;
+const char DATA = 4;
+const char DATA_GYRO = 5; 
 
 float usValue[] = { NAN, NAN, NAN, NAN };
 float irValue[] = { NAN, NAN, NAN, NAN };
@@ -54,13 +54,12 @@ float imuGyrValue_Z = NAN;
 float imuBarValue = NAN;
 
 char sendBuffer[75]; // For transmitting data onto Arduino's USART
-char readBuffer[50]; // For receiving data from Arduino's USART
 
 // For Handshake protocol between Arduino and RPi
 
-boolean is_Handshake_Successful = false;
 boolean is_SYN_Received = false;
-boolean is_SYNACK_Received = false;
+boolean is_ACK_Received = false;
+unsigned long synAckSendTime = millis();
 
 CSmartTimer *timer1;
 CSmartTimer *timer2;
@@ -112,7 +111,7 @@ void initializeTimers() {
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
 
   timer2 = new CSmartTimer(STIMER2);
-  timer2 -> attachCallback(usRead, US_PERIOD);
+//  timer2 -> attachCallback(usRead, US_PERIOD);
 //  timer2 -> attachCallback(irRead, IR_PERIOD);
   timer2 -> attachCallback(dcWrite, DC_PERIOD);
 
@@ -128,29 +127,38 @@ void initializeTimers() {
 }
 
 void uartDataWrite() {
-  char payloadSize = 0;
-  char packetCode = DATA;
-  char checksum = 0;
-  
-  if (usValue[0] != NAN) {
-    memcpy(sendBuffer + 2, usValue, sizeof(usValue));
-    payloadSize += sizeof(usValue);
-    
-    for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
-      usValue[i] = NAN; 
-    }
-     
-    for (int j = 2; j <= payloadSize + 1; j++) {
-      checksum ^= sendBuffer[j];
-    }
+//  char payloadSize = 0;
+//  char packetCode = DATA;
+//  char checksum = 0;
 
-    sendBuffer[0] = packetCode;
-    sendBuffer[1] = payloadSize;
-    sendBuffer[payloadSize + 2] = '\r';
-    sendBuffer[payloadSize + 3] = checksum;    
-
-    Serial1.write(sendBuffer, payloadSize + 4);
+  if (is_SYN_Received == true && is_ACK_Received == false) {
+    if (millis() - synAckSendTime >= 1000) { 
+      sendBuffer[0] = SYNACK;
+      Serial.println("Sending SYNACK");
+      Serial1.write(sendBuffer, 1);
+      synAckSendTime = millis();
+    }
   }
+  
+//  else if (usValue[0] != NAN) {
+//    memcpy(sendBuffer + 2, usValue, sizeof(usValue));
+//    payloadSize += sizeof(usValue);
+//    
+//    for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
+//      usValue[i] = NAN; 
+//    }
+//     
+//    for (int j = 2; j <= payloadSize + 1; j++) {
+//      checksum ^= sendBuffer[j];
+//    }
+//
+//    sendBuffer[0] = packetCode;
+//    sendBuffer[1] = payloadSize;
+//    sendBuffer[payloadSize + 2] = '\r';
+//    sendBuffer[payloadSize + 3] = checksum;    
+//
+//    Serial1.write(sendBuffer, payloadSize + 4);
+//  }
 
 //  if (irValue[0] != NAN) {
 //    memcpy(buf+1, usValue, sizeof(irValue) / sizeof(float));
@@ -162,41 +170,16 @@ void uartGyroWrite() {
 }
 
 void uartRead() {
-  int i = 0;
+  if (Serial1.available()) {
+    int rpiPacket = Serial1.read();
 
-  if (is_Handshake_Successful == false) {
-    if (is_SYN_Received == false) {
-      while (is_SYN_Received == false) {
-        if (Serial1.available()) {
-          char rpi_Packet1 = Serial1.read();
-        
-          if (rpi_Packet1 == SYN) {
-            is_SYN_Received = true;
-          }
-        }
-      }
-    } else if (is_SYNACK_Received == false) {
-      while (is_SYNACK_Received == false) {
-        if (Serial1.available()) {
-          char rpi_Packet2 = Serial1.read();
-
-          if (rpi_Packet2 == SYNACK) {
-            is_SYNACK_Received = true;
-            is_Handshake_Successful = true;
-          }
-        }
-      }
+    if (rpiPacket == SYN) {
+      is_SYN_Received = true;
+      Serial.println("SYN Received");
+    } else if (rpiPacket == ACK) {
+      is_ACK_Received = true;
+      Serial.println("ACK Received");
     }
-  } else {
-    while (Serial1.available()) {
-      readBuffer[i] = Serial1.read();
-      i++;
-    }
-
-    int number;
-    sscanf(readBuffer, "%d", &number);
-    int value = number + 10; 
-    Serial.println(value);
   }
 }
 
