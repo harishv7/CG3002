@@ -1,7 +1,9 @@
 #include <smartTimer.h>
 #include <math.h>
+#include <Wire.h>
+#include <LSM303.h>
 
-// Sensors and Actuators pins declaration
+// Declaration of Sensors and Actuators pins
 
 const int UART_PIN_TX = 18;
 const int UART_PIN_RX = 19;
@@ -14,23 +16,17 @@ const int IR_PIN[] = { 2, 3, 4, 5 };
 const int DC_1_PIN = 6;
 const int DC_2_PIN = 7;
 
-const int IMU_PIN_SDA = 20;
-const int IMU_PIN_SCL = 21;
+// Declaration of poll periods (in ms)
 
-// Poll periods declaration (in ms)
+const int UART_WRITE_PERIOD = 300;
+const int UART_READ_PERIOD = 300;
+const int US_PERIOD = 200;
+const int IR_PERIOD = 200;
+const int DC_PERIOD = 200;
+const int IMU_PERIOD = 300;
 
-const int UART_GYRO_WRITE_PERIOD = 20;
-const int UART_DATA_WRITE_PERIOD = 500;
-const int UART_READ_PERIOD = 500;
-const int US_PERIOD = 500;
-const int IR_PERIOD = 2000;
-const int DC_PERIOD = 100;
-const int IMU_ACC_PERIOD = 10;
-const int IMU_MAG_PERIOD = 320;
-const int IMU_GYR_PERIOD = 10;
-const int IMU_BAR_PERIOD = 1000;
 
-// Packet codes declaration
+// Declaration of packet codes 
 
 const char SYN = 0;
 const char SYNACK = 1;
@@ -39,19 +35,28 @@ const char NACK = 3;
 const char DATA = 4;
 const char DATA_GYRO = 5; 
 
+const char ACC_X_INDEX = 0;
+const char ACC_Y_INDEX = 1;
+const char ACC_Z_INDEX = 2;
+const char GYR_X_INDEX = 3;
+const char GYR_Y_INDEX = 4;
+const char GYR_Z_INDEX = 5;
+const char MAG_HEADING_INDEX = 6;
+const char BAR_INDEX = 7;
+
 float usValue[] = { NAN, NAN, NAN, NAN };
 float irValue[] = { NAN, NAN, NAN, NAN };
 float dcValue = NAN;
-float imuAccValue_X = NAN;
-float imuAccValue_Y = NAN;
-float imuAccValue_Z = NAN;
-float imuMagValue_X = NAN;
-float imuMagValue_Y = NAN;
-float imuMagValue_Z = NAN;
-float imuGyrValue_X = NAN;
-float imuGyrValue_Y = NAN;
-float imuGyrValue_Z = NAN;
-float imuBarValue = NAN;
+float imuValue[] = { NAN, NAN, NAN, NAN, NAN, NAN, NAN, NAN };
+
+float accXEg = 25.9;
+float accYEg = 30.7;
+float accZEg = 39.2;
+float gyrXEg = 12.9;
+float gyrYEg = 31.6;
+float gyrZEg = 29.1;
+float magHeadingEg = 49.3;
+float barEg = 57.3;
 
 char sendBuffer[75]; // For transmitting data onto Arduino's USART
 
@@ -61,22 +66,21 @@ boolean is_SYN_Received = false;
 boolean is_ACK_Received = false;
 unsigned long synAckSendTime = millis();
 
+LSM303 accMag;
+
 CSmartTimer *timer1;
 CSmartTimer *timer2;
 CSmartTimer *timer3;
 
 void initializePins();
 void initializeTimers();
-void uartGyroWrite();
 void uartDataWrite();
 void uartRead();
 void usRead();
 void irRead();
 void dcWrite();
-void imuAccRead();
-void imuMagRead();
+void imuAccMagBarRead();
 void imuGyrRead();
-void imuBarRead();
 
 unsigned long pulse(int triggerPin, int echoPin);
 float calculateDistance(unsigned long duration);
@@ -84,6 +88,17 @@ float calculateDistance(unsigned long duration);
 void setup() {
   Serial.begin(9600);
   Serial1.begin(115200);
+  Serial1.flush();
+
+//  Wire.begin();
+//  if (!accMag.init()) {
+//    Serial.println("Failed to autodetect compass!");
+//    while (1);
+//  }
+//  accMag.enableDefault();
+//
+//  accMag.m_min = (LSM303::vector<int16_t>){-1832, -2342, -1505};
+//  accMag.m_max = (LSM303::vector<int16_t>){+2278, +2042, +2726};
 
   initializePins();
   initializeTimers();
@@ -94,10 +109,10 @@ void loop() {
 }
 
 void initializePins() {
-  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(int); i++) {
-    pinMode(US_PIN_IN[i], INPUT);
-    pinMode(US_PIN_OUT[i], OUTPUT);
-  }
+//  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(int); i++) {
+//    pinMode(US_PIN_IN[i], INPUT);
+//    pinMode(US_PIN_OUT[i], OUTPUT);
+//  }
 
 //  for (int i = 0; i < sizeof(IR_PIN) / sizeof(int); i++) {
 //    pinMode(IR_PIN[i], INPUT);
@@ -106,30 +121,29 @@ void initializePins() {
 
 void initializeTimers() {
   timer1 = new CSmartTimer(STIMER1);
-//  timer1 -> attachCallback(uartGyroWrite, UART_GYRO_WRITE_PERIOD);
-  timer1 -> attachCallback(uartDataWrite, UART_DATA_WRITE_PERIOD);
+  timer1 -> attachCallback(uartDataWrite, UART_WRITE_PERIOD);
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
-
-  timer2 = new CSmartTimer(STIMER2);
+  timer1 -> attachCallback(imuRead, IMU_PERIOD);
+  
+  
+//  timer2 = new CSmartTimer(STIMER2);
 //  timer2 -> attachCallback(usRead, US_PERIOD);
 //  timer2 -> attachCallback(irRead, IR_PERIOD);
-  timer2 -> attachCallback(dcWrite, DC_PERIOD);
+//  timer2 -> attachCallback(dcWrite, DC_PERIOD);
 
-  timer3 = new CSmartTimer(STIMER3);
-  timer3 -> attachCallback(imuAccRead, IMU_ACC_PERIOD);
-  timer3 -> attachCallback(imuMagRead, IMU_MAG_PERIOD);
-  timer3 -> attachCallback(imuGyrRead, IMU_GYR_PERIOD);
-  timer3 -> attachCallback(imuBarRead, IMU_BAR_PERIOD);
+//  timer3 = new CSmartTimer(STIMER3);
+//  timer3 -> attachCallback(imuAccMagBarRead, IMU_ACC_MAG_BAR_PERIOD);
+//  timer3 -> attachCallback(imuGyrRead, IMU_GYR_PERIOD);
   
   timer1 -> startTimer();
-  timer2 -> startTimer();
-  timer3 -> startTimer();
+//  timer2 -> startTimer();
+//  timer3 -> startTimer();
 }
 
 void uartDataWrite() {
-//  char payloadSize = 0;
-//  char packetCode = DATA;
-//  char checksum = 0;
+  char payloadSize = 0;
+  char packetCode = DATA;
+  char checksum = 0;
 
   if (is_SYN_Received == true && is_ACK_Received == false) {
     if (millis() - synAckSendTime >= 1000) { 
@@ -138,35 +152,25 @@ void uartDataWrite() {
       Serial1.write(sendBuffer, 1);
       synAckSendTime = millis();
     }
+  } else if (is_ACK_Received == true && imuValue[0] == imuValue[0]) {
+    memcpy(sendBuffer + 2, imuValue, sizeof(imuValue));
+    payloadSize += sizeof(imuValue);
+    
+    for (int i = 0; i < sizeof(imuValue) / sizeof(float); i++) {
+      imuValue[i] = NAN; 
+    }
+     
+    for (int j = 2; j <= payloadSize + 1; j++) {
+      checksum ^= sendBuffer[j];
+    }
+
+    sendBuffer[0] = packetCode;
+    sendBuffer[1] = payloadSize;
+    sendBuffer[payloadSize + 2] = '\r';
+    sendBuffer[payloadSize + 3] = checksum;    
+
+    Serial1.write(sendBuffer, payloadSize + 4);
   }
-  
-//  else if (usValue[0] != NAN) {
-//    memcpy(sendBuffer + 2, usValue, sizeof(usValue));
-//    payloadSize += sizeof(usValue);
-//    
-//    for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
-//      usValue[i] = NAN; 
-//    }
-//     
-//    for (int j = 2; j <= payloadSize + 1; j++) {
-//      checksum ^= sendBuffer[j];
-//    }
-//
-//    sendBuffer[0] = packetCode;
-//    sendBuffer[1] = payloadSize;
-//    sendBuffer[payloadSize + 2] = '\r';
-//    sendBuffer[payloadSize + 3] = checksum;    
-//
-//    Serial1.write(sendBuffer, payloadSize + 4);
-//  }
-
-//  if (irValue[0] != NAN) {
-//    memcpy(buf+1, usValue, sizeof(irValue) / sizeof(float));
-//  }
-}
-
-void uartGyroWrite() {
-  
 }
 
 void uartRead() {
@@ -219,20 +223,49 @@ void dcWrite() {
   
 }
 
-void imuAccRead() {
-  
+void imuRead() {
+  imuAccRead();
+  imuGyrRead();
+  imuMagRead();
+  imuBarRead();
 }
 
-void imuMagRead() {
-  
+void imuAccRead() {
+//  accMag.read()11;
+//
+//  imuAccMagBarValue[ACC_X_INDEX] = (float) accMag.a.x;
+//  imuAccMagBarValue[ACC_Y_INDEX] = (float) accMag.a.y;
+//  imuAccMagBarValue[ACC_Z_INDEX] = (float) accMag.a.z;
+
+  imuValue[ACC_X_INDEX] = accXEg;
+  imuValue[ACC_Y_INDEX] = accYEg;
+  imuValue[ACC_Z_INDEX] = accZEg;
+  accXEg += 5;
+  accYEg += 5;
+  accZEg += 5;
 }
 
 void imuGyrRead() {
-  
+  imuValue[GYR_X_INDEX] = gyrXEg;
+  imuValue[GYR_Y_INDEX] = gyrYEg;
+  imuValue[GYR_Z_INDEX] = gyrZEg;
+  gyrXEg += 5;
+  gyrYEg += 5;
+  gyrZEg += 5;
+}
+
+void imuMagRead() {
+//  accMag.read();
+//  imuAccMagBarValue[MAG_HEADING_INDEX] = accMag.heading();
+
+  imuValue[MAG_HEADING_INDEX] = magHeadingEg;
+  magHeadingEg += 5;
 }
 
 void imuBarRead() {
-  
+//  imuAccMagBarValue[BAR_INDEX] = 25.5;
+  imuValue[BAR_INDEX] = barEg;
+  barEg += 5;
 }
 
 unsigned long pulse(int triggerPin, int echoPin) {
