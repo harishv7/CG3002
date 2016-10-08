@@ -3,6 +3,8 @@
 #include <Wire.h>
 #include <LSM303.h>
 
+LSM303 accMag;
+
 // Declaration of Sensors and Actuators pins
 
 const int UART_PIN_TX = 18;
@@ -19,7 +21,7 @@ const int DC_2_PIN = 7;
 // Declaration of poll periods (in ms)
 
 const int UART_WRITE_PERIOD = 300;
-const int UART_READ_PERIOD = 300;
+const int UART_READ_PERIOD = 500;
 const int US_PERIOD = 200;
 const int IR_PERIOD = 200;
 const int DC_PERIOD = 200;
@@ -33,7 +35,8 @@ const char SYNACK = 1;
 const char ACK = 2;
 const char NACK = 3;
 const char DATA = 4;
-const char DATA_GYRO = 5; 
+
+// Declaration of indices for IMU data
 
 const char ACC_X_INDEX = 0;
 const char ACC_Y_INDEX = 1;
@@ -66,8 +69,6 @@ boolean is_SYN_Received = false;
 boolean is_ACK_Received = false;
 unsigned long synAckSendTime = millis();
 
-LSM303 accMag;
-
 CSmartTimer *timer1;
 CSmartTimer *timer2;
 CSmartTimer *timer3;
@@ -79,8 +80,11 @@ void uartRead();
 void usRead();
 void irRead();
 void dcWrite();
-void imuAccMagBarRead();
+void imuRead();
+void imuAccRead();
 void imuGyrRead();
+void imuMagRead();
+void imuBarRead();
 
 unsigned long pulse(int triggerPin, int echoPin);
 float calculateDistance(unsigned long duration);
@@ -90,16 +94,20 @@ void setup() {
   Serial1.begin(115200);
   Serial1.flush();
 
-//  Wire.begin();
-//  if (!accMag.init()) {
-//    Serial.println("Failed to autodetect compass!");
-//    while (1);
-//  }
-//  accMag.enableDefault();
-//
-//  accMag.m_min = (LSM303::vector<int16_t>){-1832, -2342, -1505};
-//  accMag.m_max = (LSM303::vector<int16_t>){+2278, +2042, +2726};
+  Wire.begin();
+  while (!accMag.init()) {
+    Serial.println("Failed to autodetect compass!");
+  }
+  accMag.enableDefault();
+  Serial.println("Successful");
 
+  accMag.m_min = (LSM303::vector<int16_t>){-1832, -2342, -1505};
+  accMag.m_max = (LSM303::vector<int16_t>){+2278, +2042, +2726};
+
+//  Serial.println(millis());
+//  accMag.read();
+//  Serial.println(millis());
+  
   initializePins();
   initializeTimers();
 }
@@ -123,21 +131,15 @@ void initializeTimers() {
   timer1 = new CSmartTimer(STIMER1);
   timer1 -> attachCallback(uartDataWrite, UART_WRITE_PERIOD);
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
-  timer1 -> attachCallback(imuRead, IMU_PERIOD);
-  
+//  timer1 -> attachCallback(imuRead, IMU_PERIOD);
   
 //  timer2 = new CSmartTimer(STIMER2);
 //  timer2 -> attachCallback(usRead, US_PERIOD);
 //  timer2 -> attachCallback(irRead, IR_PERIOD);
 //  timer2 -> attachCallback(dcWrite, DC_PERIOD);
-
-//  timer3 = new CSmartTimer(STIMER3);
-//  timer3 -> attachCallback(imuAccMagBarRead, IMU_ACC_MAG_BAR_PERIOD);
-//  timer3 -> attachCallback(imuGyrRead, IMU_GYR_PERIOD);
   
   timer1 -> startTimer();
 //  timer2 -> startTimer();
-//  timer3 -> startTimer();
 }
 
 void uartDataWrite() {
@@ -148,11 +150,20 @@ void uartDataWrite() {
   if (is_SYN_Received == true && is_ACK_Received == false) {
     if (millis() - synAckSendTime >= 1000) { 
       sendBuffer[0] = SYNACK;
-      Serial.println("Sending SYNACK");
       Serial1.write(sendBuffer, 1);
       synAckSendTime = millis();
     }
-  } else if (is_ACK_Received == true && imuValue[0] == imuValue[0]) {
+  } else if (is_ACK_Received == true) {
+//    Serial.print("Entered data write");
+
+    accMag.read();
+    Serial.println(accMag.a.x);
+    imuValue[ACC_X_INDEX] = (float) accMag.a.x;
+    imuValue[ACC_Y_INDEX] = (float) accMag.a.y;
+    imuValue[ACC_Z_INDEX] = (float) accMag.a.z;
+
+    imuValue[MAG_HEADING_INDEX] = accMag.heading();
+    
     memcpy(sendBuffer + 2, imuValue, sizeof(imuValue));
     payloadSize += sizeof(imuValue);
     
@@ -170,6 +181,7 @@ void uartDataWrite() {
     sendBuffer[payloadSize + 3] = checksum;    
 
     Serial1.write(sendBuffer, payloadSize + 4);
+//    Serial.print("Sent data");
   }
 }
 
@@ -179,10 +191,8 @@ void uartRead() {
 
     if (rpiPacket == SYN) {
       is_SYN_Received = true;
-      Serial.println("SYN Received");
     } else if (rpiPacket == ACK) {
       is_ACK_Received = true;
-      Serial.println("ACK Received");
     }
   }
 }
@@ -202,21 +212,21 @@ void usRead() {
 }
 
 void irRead() {
-    for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
-      int divisor = analogRead(IR_PIN[i]);
-      if (divisor <= 3) {
-        irValue[i] = NAN;
-      } else {
-        irValue[i] = 6786.0 / (divisor - 3.0) - 4.0;
-      }
+  for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
+    int divisor = analogRead(IR_PIN[i]);
+    if (divisor <= 3) {
+      irValue[i] = NAN;
+    } else {
+      irValue[i] = 6786.0 / (divisor - 3.0) - 4.0;
     }
+  }
 
-    Serial.println("IR:");
-    for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
-      Serial.println(irValue[i]);
-    }
+  Serial.println("IR:");
+  for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
+    Serial.println(irValue[i]);
+  }
 
-    Serial.println();
+  Serial.println();
 }
 
 void dcWrite() {
@@ -231,11 +241,17 @@ void imuRead() {
 }
 
 void imuAccRead() {
-//  accMag.read()11;
-//
-//  imuAccMagBarValue[ACC_X_INDEX] = (float) accMag.a.x;
-//  imuAccMagBarValue[ACC_Y_INDEX] = (float) accMag.a.y;
-//  imuAccMagBarValue[ACC_Z_INDEX] = (float) accMag.a.z;
+//  accMag.read();
+  
+//  Serial.print("Acc X: ");
+//  Serial.println(accMag.a.x);
+//  Serial.print("Acc Y: ");
+//  Serial.println(accMag.a.y);
+//  Serial.print("Acc Z: ");
+//  Serial.println(accMag.a.z);
+//  imuValue[ACC_X_INDEX] = (float) accMag.a.x;
+//  imuValue[ACC_Y_INDEX] = (float) accMag.a.y;
+//  imuValue[ACC_Z_INDEX] = (float) accMag.a.z;
 
   imuValue[ACC_X_INDEX] = accXEg;
   imuValue[ACC_Y_INDEX] = accYEg;
@@ -256,14 +272,13 @@ void imuGyrRead() {
 
 void imuMagRead() {
 //  accMag.read();
-//  imuAccMagBarValue[MAG_HEADING_INDEX] = accMag.heading();
+//  imuValue[MAG_HEADING_INDEX] = accMag.heading();
 
   imuValue[MAG_HEADING_INDEX] = magHeadingEg;
   magHeadingEg += 5;
 }
 
 void imuBarRead() {
-//  imuAccMagBarValue[BAR_INDEX] = 25.5;
   imuValue[BAR_INDEX] = barEg;
   barEg += 5;
 }
