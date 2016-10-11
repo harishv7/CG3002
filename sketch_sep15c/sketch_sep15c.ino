@@ -25,8 +25,7 @@ const int UART_READ_PERIOD = 100;
 const int US_PERIOD = 200;
 const int IR_PERIOD = 200;
 const int DC_PERIOD = 200;
-const int IMU_PERIOD = 300;
-
+const int IMU_PERIOD = 100;
 
 // Declaration of packet codes 
 
@@ -155,18 +154,6 @@ void uartDataWrite() {
       synAckSendTime = millis();
     }
   } else if (is_ACK_Received == true) {
-    sei();
-    Serial.println("Entered data write");
-    Serial.flush();
-    accMag.read();
-    Serial.println(accMag.a.x);
-    Serial.flush();
-    imuValue[ACC_X_INDEX] = (float) accMag.a.x;
-    imuValue[ACC_Y_INDEX] = (float) accMag.a.y;
-    imuValue[ACC_Z_INDEX] = (float) accMag.a.z;
-
-    imuValue[MAG_HEADING_INDEX] = accMag.heading();
-    
     memcpy(sendBuffer + 2, imuValue, sizeof(imuValue));
     payloadSize += sizeof(imuValue);
     
@@ -185,7 +172,6 @@ void uartDataWrite() {
 
     Serial1.write(sendBuffer, payloadSize + 4);
     Serial1.flush();
-    Serial.print("Sent data");
   }
 }
 
@@ -238,6 +224,7 @@ void dcWrite() {
 }
 
 void imuRead() {
+  sei();
   imuAccRead();
   imuGyrRead();
   imuMagRead();
@@ -245,24 +232,31 @@ void imuRead() {
 }
 
 void imuAccRead() {
-//  accMag.read();
-  
-//  Serial.print("Acc X: ");
-//  Serial.println(accMag.a.x);
-//  Serial.print("Acc Y: ");
-//  Serial.println(accMag.a.y);
-//  Serial.print("Acc Z: ");
-//  Serial.println(accMag.a.z);
-//  imuValue[ACC_X_INDEX] = (float) accMag.a.x;
-//  imuValue[ACC_Y_INDEX] = (float) accMag.a.y;
-//  imuValue[ACC_Z_INDEX] = (float) accMag.a.z;
+  accMag.read();
 
-  imuValue[ACC_X_INDEX] = accXEg;
-  imuValue[ACC_Y_INDEX] = accYEg;
-  imuValue[ACC_Z_INDEX] = accZEg;
-  accXEg += 5;
-  accYEg += 5;
-  accZEg += 5;
+  imuValue[ACC_X_INDEX] = (float) accMag.a.x;
+  imuValue[ACC_Y_INDEX] = (float) accMag.a.y;
+  imuValue[ACC_Z_INDEX] = (float) accMag.a.z;
+  
+  Serial.print("Acc X: ");
+  Serial.flush();
+  Serial.println(imuValue[ACC_X_INDEX]);
+  Serial.flush();
+  Serial.print("Acc Y: ");
+  Serial.flush();
+  Serial.println(imuValue[ACC_Y_INDEX]);
+  Serial.flush();
+  Serial.print("Acc Z: ");
+  Serial.flush();
+  Serial.println(imuValue[ACC_Z_INDEX]);
+  Serial.flush();
+
+//  imuValue[ACC_X_INDEX] = accXEg;
+//  imuValue[ACC_Y_INDEX] = accYEg;
+//  imuValue[ACC_Z_INDEX] = accZEg;
+//  accXEg += 5;
+//  accYEg += 5;
+//  accZEg += 5;
 }
 
 void imuGyrRead() {
@@ -275,11 +269,16 @@ void imuGyrRead() {
 }
 
 void imuMagRead() {
-//  accMag.read();
-//  imuValue[MAG_HEADING_INDEX] = accMag.heading();
+  accMag.read();
+  imuValue[MAG_HEADING_INDEX] = accMag.heading();
 
-  imuValue[MAG_HEADING_INDEX] = magHeadingEg;
-  magHeadingEg += 5;
+  Serial.print("Mag Heading: ");
+  Serial.flush();
+  Serial.println(imuValue[MAG_HEADING_INDEX]);
+  Serial.flush();
+
+//  imuValue[MAG_HEADING_INDEX] = magHeadingEg;
+//  magHeadingEg += 5;
 }
 
 void imuBarRead() {
