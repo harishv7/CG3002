@@ -116,10 +116,10 @@ void loop() {
 }
 
 void initializePins() {
-//  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(int); i++) {
-//    pinMode(US_PIN_IN[i], INPUT);
-//    pinMode(US_PIN_OUT[i], OUTPUT);
-//  }
+  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(int); i++) {
+    pinMode(US_PIN_IN[i], INPUT);
+    pinMode(US_PIN_OUT[i], OUTPUT);
+  }
 
 //  for (int i = 0; i < sizeof(IR_PIN) / sizeof(int); i++) {
 //    pinMode(IR_PIN[i], INPUT);
@@ -207,7 +207,7 @@ void irRead() {
     if (divisor <= 3) {
       irValue[i] = NAN;
     } else {
-      irValue[i] = 6786.0 / (divisor - 3.0) - 4.0;
+      irValue[i] = 6787.0 / (divisor - 3.0) - 4.0;
     }
   }
 
@@ -238,18 +238,18 @@ void imuAccRead() {
   imuValue[ACC_Y_INDEX] = (float) accMag.a.y;
   imuValue[ACC_Z_INDEX] = (float) accMag.a.z;
   
-  Serial.print("Acc X: ");
-  Serial.flush();
-  Serial.println(imuValue[ACC_X_INDEX]);
-  Serial.flush();
-  Serial.print("Acc Y: ");
-  Serial.flush();
-  Serial.println(imuValue[ACC_Y_INDEX]);
-  Serial.flush();
-  Serial.print("Acc Z: ");
-  Serial.flush();
-  Serial.println(imuValue[ACC_Z_INDEX]);
-  Serial.flush();
+//  Serial.println("Acc X: ");
+//  Serial.flush();
+//  Serial.println(imuValue[ACC_X_INDEX]);
+//  Serial.flush();
+//  Serial.println("Acc Y: ");
+//  Serial.flush();
+//  Serial.println(imuValue[ACC_Y_INDEX]);
+//  Serial.flush();
+//  Serial.println("Acc Z: ");
+//  Serial.flush();
+//  Serial.println(imuValue[ACC_Z_INDEX]);
+//  Serial.flush();
 
 //  imuValue[ACC_X_INDEX] = accXEg;
 //  imuValue[ACC_Y_INDEX] = accYEg;
@@ -272,10 +272,10 @@ void imuMagRead() {
   accMag.read();
   imuValue[MAG_HEADING_INDEX] = accMag.heading();
 
-  Serial.print("Mag Heading: ");
-  Serial.flush();
-  Serial.println(imuValue[MAG_HEADING_INDEX]);
-  Serial.flush();
+//  Serial.print("Mag Heading: ");
+//  Serial.flush();
+//  Serial.println(imuValue[MAG_HEADING_INDEX]);
+//  Serial.flush();
 
 //  imuValue[MAG_HEADING_INDEX] = magHeadingEg;
 //  magHeadingEg += 5;
