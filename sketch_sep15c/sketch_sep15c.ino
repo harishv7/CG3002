@@ -20,8 +20,8 @@ const int DC_2_PIN = 7;
 
 // Declaration of poll periods (in ms)
 
-const int UART_WRITE_PERIOD = 300;
-const int UART_READ_PERIOD = 500;
+const int UART_WRITE_PERIOD = 100;
+const int UART_READ_PERIOD = 100;
 const int US_PERIOD = 200;
 const int IR_PERIOD = 200;
 const int DC_PERIOD = 200;
@@ -131,7 +131,7 @@ void initializeTimers() {
   timer1 = new CSmartTimer(STIMER1);
   timer1 -> attachCallback(uartDataWrite, UART_WRITE_PERIOD);
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
-//  timer1 -> attachCallback(imuRead, IMU_PERIOD);
+  timer1 -> attachCallback(imuRead, IMU_PERIOD);
   
 //  timer2 = new CSmartTimer(STIMER2);
 //  timer2 -> attachCallback(usRead, US_PERIOD);
@@ -151,13 +151,16 @@ void uartDataWrite() {
     if (millis() - synAckSendTime >= 1000) { 
       sendBuffer[0] = SYNACK;
       Serial1.write(sendBuffer, 1);
+      Serial1.flush();
       synAckSendTime = millis();
     }
   } else if (is_ACK_Received == true) {
-//    Serial.print("Entered data write");
-
+    sei();
+    Serial.println("Entered data write");
+    Serial.flush();
     accMag.read();
     Serial.println(accMag.a.x);
+    Serial.flush();
     imuValue[ACC_X_INDEX] = (float) accMag.a.x;
     imuValue[ACC_Y_INDEX] = (float) accMag.a.y;
     imuValue[ACC_Z_INDEX] = (float) accMag.a.z;
@@ -181,7 +184,8 @@ void uartDataWrite() {
     sendBuffer[payloadSize + 3] = checksum;    
 
     Serial1.write(sendBuffer, payloadSize + 4);
-//    Serial.print("Sent data");
+    Serial1.flush();
+    Serial.print("Sent data");
   }
 }
 
