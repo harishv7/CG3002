@@ -35,27 +35,26 @@ const char ACK = 2;
 const char NACK = 3;
 const char DATA = 4;
 
-// Declaration of indices for sensor data to be transmitted
-
-const char STEP_COUNT_INDEX = 0;
-const char MAG_HEADING_INDEX = 1;
-const char BAR_INDEX = 2;
-
-// Thresholds for pedometer
+// Declarations of thresholds for pedometer
 
 const float ACCELERATION_THRESHOLD = 20000;
 const float DECELERATION_THRESHOLD = 14000;
 
+// Declaration of indices for sensor info
+
+const char PEDO_VALUE_INDEX = 0;
+
+const char MAG_HEADING_INDEX = 0;
+const char BAR_VALUE_INDEX = 1;
+
 long lastAccelerationTime;
-float accX, accY, accZ;
-float accMagnitude;
-int stepCount = 0;
+int pedoValue[] = { 0 };
 bool flag = false;
 
 float usValue[] = { NAN, NAN, NAN, NAN };
 float irValue[] = { NAN, NAN, NAN, NAN };
 float dcValue = NAN;
-float sensorData[] = { NAN, NAN, NAN };
+float imuValue[] = { NAN, NAN };
 
 float accXEg = 25.9;
 float accYEg = 30.7;
@@ -160,13 +159,14 @@ void uartDataWrite() {
       Serial1.flush();
       synAckSendTime = millis();
     }
-  } else if (is_ACK_Received == true) {
-    memcpy(sendBuffer + 2, sensorData, sizeof(sensorData));
-    payloadSize += sizeof(sensorData);
-    
-    for (int i = 0; i < sizeof(sensorData) / sizeof(float); i++) {
-      sensorData[i] = NAN; 
-    }
+  } else if (is_ACK_Received == true && imuValue[MAG_HEADING_INDEX] == imuValue[MAG_HEADING_INDEX]) {
+    int pedoOffset = 2;
+    memcpy(sendBuffer + pedoOffset, pedoValue, sizeof(pedoValue));
+    payloadSize += sizeof(pedoValue);
+
+    int imuOffset = 2 + payloadSize;
+    memcpy(sendBuffer + imuOffset, imuValue, sizeof(imuValue));
+    payloadSize += sizeof(imuValue);
      
     for (int j = 2; j <= payloadSize + 1; j++) {
       checksum ^= sendBuffer[j];
@@ -241,11 +241,11 @@ void imuRead() {
 void imuAccRead() {
   accMag.read();
 
-  accX = (float) accMag.a.x;
-  accY = (float) accMag.a.y;
-  accZ = (float) accMag.a.z;
+  float accX = (float) accMag.a.x;
+  float accY = (float) accMag.a.y;
+  float accZ = (float) accMag.a.z;
 
-  accMagnitude = calculateMagnitude(accX, accY, accZ);
+  float accMagnitude = calculateMagnitude(accX, accY, accZ);
 
   if (flag && (millis() - lastAccelerationTime >= 1000)) {
     flag = false;
@@ -253,15 +253,13 @@ void imuAccRead() {
 
   if (accMagnitude >= ACCELERATION_THRESHOLD) {
     if (!flag) {
-      stepCount++;
+      pedoValue[PEDO_VALUE_INDEX]++;
       flag = true;
       lastAccelerationTime = millis();
     }
   } else if (accMagnitude <= DECELERATION_THRESHOLD) {
     flag = false;
   }
-
-  sensorData[STEP_COUNT_INDEX] = stepCount;
   
 //  Serial.println("Acc X: ");
 //  Serial.flush();
@@ -275,13 +273,6 @@ void imuAccRead() {
 //  Serial.flush();
 //  Serial.println(imuValue[ACC_Z_INDEX]);
 //  Serial.flush();
-
-//  imuValue[ACC_X_INDEX] = accXEg;
-//  imuValue[ACC_Y_INDEX] = accYEg;
-//  imuValue[ACC_Z_INDEX] = accZEg;
-//  accXEg += 5;
-//  accYEg += 5;
-//  accZEg += 5;
 }
 
 //void imuGyrRead() {
@@ -295,19 +286,16 @@ void imuAccRead() {
 
 void imuMagRead() {
   accMag.read();
-  sensorData[MAG_HEADING_INDEX] = accMag.heading();
+  imuValue[MAG_HEADING_INDEX] = accMag.heading();
 
 //  Serial.print("Mag Heading: ");
 //  Serial.flush();
 //  Serial.println(imuValue[MAG_HEADING_INDEX]);
 //  Serial.flush();
-
-//  imuValue[MAG_HEADING_INDEX] = magHeadingEg;
-//  magHeadingEg += 5;
 }
 
 void imuBarRead() {
-  sensorData[BAR_INDEX] = barEg;
+  imuValue[BAR_VALUE_INDEX] = barEg;
   barEg += 5;
 }
 
