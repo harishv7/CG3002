@@ -70,22 +70,27 @@ def readlineCR(port):
     else:
         current_byte = port.read()
         packet_code = int(binascii.hexlify(current_byte), 16)
-        
+       
     current_byte = port.read()
     size = int(binascii.hexlify(current_byte), 16)
-
+    
     stepcount_bytes = []
-    for i in (0,4):
-        stepcount_bytes.append(port.read())
+    for i in range(0, 4):
+        current_byte = port.read()
+        stepcount_bytes.append(binascii.hexlify(current_byte))
+        
+    stepcount = convert_to_int(stepcount_bytes)[0]
 
-    stepcount = convert_to_int(stepcount_bytes)
+    computed_checksum = computed_checksum ^ stepcount
     
     current_byte = port.read()
     while (current_byte != b'\r' and current_byte != b''):
         # Convert the current_byte to hex format
         current_hex = binascii.hexlify(current_byte)
+        
         # Update the computed_checksum by xor-ing with the newly acquired data
         computed_checksum = computed_checksum ^ int(current_hex, 16)
+        
         # If length is < 4 bytes, keep appending
         if(len(temp) < 4):
             temp.append(current_hex)
@@ -107,8 +112,11 @@ def readlineCR(port):
         print("InvalidArgumentException")
         port.flushInput()
     
+    # Return data together with stepcount
+    collated_data = [stepcount, data]
+
     # Return a tuple containing the size and data
-    return (packet_code, size, checksum, computed_checksum, data)
+    return (packet_code, size, checksum, computed_checksum, collated_data)
 
 # Converts the array of bytes into integer
 def convert_to_int(data):
