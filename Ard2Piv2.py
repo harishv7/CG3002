@@ -3,7 +3,7 @@ import struct
 import binascii
 import time
 
-##Define Constants
+# Define Constants
 SYN = 0
 SYNACK = 1
 ACK = 2
@@ -35,6 +35,7 @@ def initiate_handshake():
                 print("SYN done")
                 is_SYN_sent = True
 
+# Finalises the handshake by receiving the ACK and the first data
 def finalise_handshake():
     global is_ACK_sent
     print("Sending ACK")
@@ -70,7 +71,6 @@ def readlineCR(port):
         current_byte = port.read()
         packet_code = int(binascii.hexlify(current_byte), 16)
         
-    
     current_byte = port.read()
     size = int(binascii.hexlify(current_byte), 16)
 
@@ -110,6 +110,7 @@ def readlineCR(port):
     # Return a tuple containing the size and data
     return (packet_code, size, checksum, computed_checksum, data)
 
+# Converts the array of bytes into integer
 def convert_to_int(data):
     data.reverse()
     int_data = [int(x, 16) for x in data]
@@ -125,18 +126,17 @@ def convert_to_float(data):
     float_result = struct.unpack('>f', float_result)
     return float_result
 
+# Define port details
 port = serial.Serial(
     "/dev/ttyAMA0",
     baudrate = 115200,
     timeout = 0
 )
 
-# clear buffer
-#while(port.inWaiting() > 0):
- #   port.read()
-
+# Before we begin, we flush the port
 port.flushInput()
 
+# Infinite loop to read data from port
 while True:
     if (not is_SYN_sent):
         initiate_handshake()
