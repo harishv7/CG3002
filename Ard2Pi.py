@@ -2,6 +2,8 @@ import serial
 import struct
 import binascii
 import time
+import requests
+import json
 
 # Define Constants
 SYN = 0
