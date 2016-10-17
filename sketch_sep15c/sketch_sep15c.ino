@@ -5,27 +5,24 @@
 
 LSM303 accMag;
 
-// Declaration of Sensors and Actuators pins
+// Declaration of pins for sensors and actuators
 
-const int UART_PIN_TX = 18;
-const int UART_PIN_RX = 19;
+const char UART_PIN_TX = 18;
+const char UART_PIN_RX = 19;
 
-const int US_PIN_IN[] = { 23, 25, 27, 29 }; // Connected to ECHO pins of ultrasound sensors
-const int US_PIN_OUT[] = { 24, 26, 28, 39 }; // Connected to TRIGGER pins of ultrasound sensors
+const char US_PIN_IN[] = { 23, 25, 27, 29 }; // Connected to ECHO pins of ultrasound sensors
+const char US_PIN_OUT[] = { 24, 26, 28, 39 }; // Connected to TRIGGER pins of ultrasound sensors
 
-const int IR_PIN[] = { 2, 3, 4, 5 };
+const char IR_PIN[] = { 2, 3, 4, 5 };
 
-const int DC_1_PIN = 6;
-const int DC_2_PIN = 7;
+const char DC_PIN_LEFT[] = { 6, 8 };
+const char DC_PIN_RIGHT[] = { 7, 9 };
 
 // Declaration of poll periods (in ms)
 
-const int UART_WRITE_PERIOD = 100;
-const int UART_READ_PERIOD = 100;
-const int US_PERIOD = 200;
-const int IR_PERIOD = 200;
-const int DC_PERIOD = 200;
-const int IMU_PERIOD = 100;
+const int UART_WRITE_PERIOD = 500;
+const int UART_READ_PERIOD = 500;
+const int SENSOR_READ_PERIOD = 50;
 
 // Declaration of packet codes 
 
@@ -35,35 +32,36 @@ const char ACK = 2;
 const char NACK = 3;
 const char DATA = 4;
 
-// Declarations of thresholds for pedometer
+// Declaration of indices
 
-const float ACCELERATION_THRESHOLD = 20000;
-const float DECELERATION_THRESHOLD = 14000;
-
-// Declaration of indices for sensor info
-
-const char PEDO_VALUE_INDEX = 0;
+const char SYNACK_INDEX = 0;
+const char PACKET_CODE_INDEX = 0;
+const char PAYLOAD_SIZE_INDEX = 1;
 
 const char MAG_HEADING_INDEX = 0;
 const char BAR_VALUE_INDEX = 1;
 
+static char US_LEFT = 0, US_FRONT_TOP = 1, US_FRONT_BOTTOM = 2, US_RIGHT = 3;
+static char IR_LEFT = 0, IR_FRONT_LEFT = 2, IR_FRONT_RIGHT = 3, IR_RIGHT = 4;
+static char DC_LEFT = 0, DC_RIGHT = 1;
+
+// Declaration of thresholds
+
+const float ACCELERATION_THRESHOLD = 20000;
+const float DECELERATION_THRESHOLD = 14000;
+
+static char US_THRESHOLD_DISTANCE = 70;
+static char IR_THRESHOLD_DISTANCE = 50;
+
 long lastAccelerationTime;
-int pedoValue[] = { 0 };
+long pedoValue = 0;
 bool flag = false;
 
 float usValue[] = { NAN, NAN, NAN, NAN };
 float irValue[] = { NAN, NAN, NAN, NAN };
-float dcValue = NAN;
 float imuValue[] = { NAN, NAN };
 
-float accXEg = 25.9;
-float accYEg = 30.7;
-float accZEg = 39.2;
-float gyrXEg = 12.9;
-float gyrYEg = 31.6;
-float gyrZEg = 29.1;
-float magHeadingEg = 49.3;
-float barEg = 57.3;
+float barEg = NAN;
 
 char sendBuffer[75]; // For transmitting data onto Arduino's USART
 
@@ -79,16 +77,19 @@ CSmartTimer *timer3;
 
 void initializePins();
 void initializeTimers();
-void uartDataWrite();
+void uartWrite();
 void uartRead();
+void sensorRead();
+void imuRead();
+void imuAccRead();
+void imuMagRead();
+void imuBarRead();
 void usRead();
 void irRead();
 void dcWrite();
-void imuRead();
-void imuAccRead();
-//void imuGyrRead();
-void imuMagRead();
-void imuBarRead();
+void dcTurnOff(int id);
+void dcRotateLeft(int id);
+void dcRotateRight(int id);
 
 float calculateMagnitude(float x, float y, float z);
 unsigned long pulse(int triggerPin, int echoPin);
@@ -108,10 +109,6 @@ void setup() {
 
   accMag.m_min = (LSM303::vector<int16_t>){-1832, -2342, -1505};
   accMag.m_max = (LSM303::vector<int16_t>){+2278, +2042, +2726};
-
-//  Serial.println(millis());
-//  accMag.read();
-//  Serial.println(millis());
   
   initializePins();
   initializeTimers();
@@ -127,53 +124,52 @@ void initializePins() {
     pinMode(US_PIN_OUT[i], OUTPUT);
   }
 
-//  for (int i = 0; i < sizeof(IR_PIN) / sizeof(int); i++) {
-//    pinMode(IR_PIN[i], INPUT);
-//  }
+  for (int i = 0; i < sizeof(IR_PIN) / sizeof(int); i++) {
+    pinMode(IR_PIN[i], INPUT);
+  }
+  
+  for (int i = 0; i < sizeof(DC_PIN_LEFT) / sizeof(int); i++) {
+    pinMode(DC_PIN_LEFT[i], OUTPUT);
+    pinMode(DC_PIN_RIGHT[i], OUTPUT);
+  }
 }
 
 void initializeTimers() {
   timer1 = new CSmartTimer(STIMER1);
-  timer1 -> attachCallback(uartDataWrite, UART_WRITE_PERIOD);
+  timer1 -> attachCallback(uartWrite, UART_WRITE_PERIOD);
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
-//  timer1 -> attachCallback(imuRead, IMU_PERIOD);
-  
-  timer2 = new CSmartTimer(STIMER2);
-  timer2 -> attachCallback(usRead, US_PERIOD);
-//  timer2 -> attachCallback(irRead, IR_PERIOD);
-//  timer2 -> attachCallback(dcWrite, DC_PERIOD);
+  timer1 -> attachCallback(sensorRead, SENSOR_READ_PERIOD);
   
   timer1 -> startTimer();
-  timer2 -> startTimer();
 }
 
-void uartDataWrite() {
+void uartWrite() {
   char payloadSize = 0;
   char packetCode = DATA;
   char checksum = 0;
 
   if (is_SYN_Received == true && is_ACK_Received == false) {
     if (millis() - synAckSendTime >= 1000) { 
-      sendBuffer[0] = SYNACK;
+      sendBuffer[SYNACK_INDEX] = SYNACK;
       Serial1.write(sendBuffer, 1);
       Serial1.flush();
       synAckSendTime = millis();
     }
   } else if (is_ACK_Received == true && imuValue[MAG_HEADING_INDEX] == imuValue[MAG_HEADING_INDEX]) {
-    int pedoOffset = 2;
-    memcpy(sendBuffer + pedoOffset, pedoValue, sizeof(pedoValue));
+    char pedoOffset = 2;
+    memcpy(sendBuffer + pedoOffset, &pedoValue, sizeof(pedoValue));
     payloadSize += sizeof(pedoValue);
 
-    int imuOffset = 2 + payloadSize;
+    char imuOffset = pedoOffset + payloadSize;
     memcpy(sendBuffer + imuOffset, imuValue, sizeof(imuValue));
     payloadSize += sizeof(imuValue);
      
-    for (int j = 2; j <= payloadSize + 1; j++) {
+    for (int j = pedoOffset; j <= payloadSize + 1; j++) {
       checksum ^= sendBuffer[j];
     }
 
-    sendBuffer[0] = packetCode;
-    sendBuffer[1] = payloadSize;
+    sendBuffer[PACKET_CODE_INDEX] = packetCode;
+    sendBuffer[PAYLOAD_SIZE_INDEX] = payloadSize;
     sendBuffer[payloadSize + 2] = '\r';
     sendBuffer[payloadSize + 3] = checksum;    
 
@@ -194,46 +190,17 @@ void uartRead() {
   }
 }
 
-void usRead() {
-  for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
-    unsigned long echoDuration = pulse(US_PIN_OUT[i], US_PIN_IN[i]);
-    usValue[i] = calculateDistance(echoDuration);
-  }
-
-  Serial.println("US:");
-  for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
-    Serial.println(usValue[i]);
-  }
-
-  Serial.println();
-}
-
-void irRead() {
-  for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
-    int divisor = analogRead(IR_PIN[i]);
-    if (divisor <= 3) {
-      irValue[i] = NAN;
-    } else {
-      irValue[i] = 6787.0 / (divisor - 3.0) - 4.0;
-    }
-  }
-
-  Serial.println("IR:");
-  for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
-    Serial.println(irValue[i]);
-  }
-
-  Serial.println();
-}
-
-void dcWrite() {
+void sensorRead() {
+  imuRead();
+  //usRead();
+  //irRead();
   
+  //dcWrite();
 }
 
 void imuRead() {
-  sei();
+  sei(); // enable all Arduino interrupts for I2C interface utilized by IMU sensors
   imuAccRead();
-//  imuGyrRead();
   imuMagRead();
   imuBarRead();
 }
@@ -253,51 +220,89 @@ void imuAccRead() {
 
   if (accMagnitude >= ACCELERATION_THRESHOLD) {
     if (!flag) {
-      pedoValue[PEDO_VALUE_INDEX]++;
+      pedoValue++;
       flag = true;
       lastAccelerationTime = millis();
     }
   } else if (accMagnitude <= DECELERATION_THRESHOLD) {
     flag = false;
   }
-  
-//  Serial.println("Acc X: ");
-//  Serial.flush();
-//  Serial.println(imuValue[ACC_X_INDEX]);
-//  Serial.flush();
-//  Serial.println("Acc Y: ");
-//  Serial.flush();
-//  Serial.println(imuValue[ACC_Y_INDEX]);
-//  Serial.flush();
-//  Serial.println("Acc Z: ");
-//  Serial.flush();
-//  Serial.println(imuValue[ACC_Z_INDEX]);
-//  Serial.flush();
 }
-
-//void imuGyrRead() {
-//  imuValue[GYR_X_INDEX] = gyrXEg;
-//  imuValue[GYR_Y_INDEX] = gyrYEg;
-//  imuValue[GYR_Z_INDEX] = gyrZEg;
-//  gyrXEg += 5;
-//  gyrYEg += 5;
-//  gyrZEg += 5;
-//}
 
 void imuMagRead() {
   accMag.read();
   imuValue[MAG_HEADING_INDEX] = accMag.heading();
-
-//  Serial.print("Mag Heading: ");
-//  Serial.flush();
-//  Serial.println(imuValue[MAG_HEADING_INDEX]);
-//  Serial.flush();
 }
 
 void imuBarRead() {
   imuValue[BAR_VALUE_INDEX] = barEg;
-  barEg += 5;
 }
+
+void usRead() {
+  for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
+    unsigned long echoDuration = pulse(US_PIN_OUT[i], US_PIN_IN[i]);
+    usValue[i] = calculateDistance(echoDuration);
+  }
+
+  Serial.println("US:");
+  for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
+    Serial.println(usValue[i]);
+  }
+
+  Serial.println();
+}
+
+void irRead() {
+  for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
+    int divisor = analogRead(IR_PIN[i]);
+    if (divisor <= 3) {
+      irValue[i] = INFINITY;
+    } else {
+      irValue[i] = 6787.0 / (divisor - 3) - 4;
+    }
+  }
+
+  Serial.println("IR:");
+  for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
+    Serial.println(irValue[i]);
+  }
+
+  Serial.println();
+}
+
+void dcWrite() {
+  dcTurnOff(DC_LEFT);
+  dcTurnOff(DC_RIGHT);
+  
+  if (usValue[US_LEFT] < US_THRESHOLD_DISTANCE || irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE) {
+    dcRotateLeft(DC_LEFT);
+  }
+  if (usValue[US_RIGHT] < US_THRESHOLD_DISTANCE || irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE) {
+    dcRotateRight(DC_RIGHT);
+  }
+  if (usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE || usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE || 
+      irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE || irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE) {
+    dcRotateLeft(DC_LEFT);
+    dcRotateRight(DC_RIGHT);
+  }
+}
+
+void dcTurnOff(int id) {
+  digitalWrite(DC_PIN_LEFT[id], LOW);
+  digitalWrite(DC_PIN_RIGHT[id], LOW);
+}
+
+void dcRotateLeft(int id) {
+  digitalWrite(DC_PIN_LEFT[id], HIGH);
+  digitalWrite(DC_PIN_RIGHT[id], LOW);
+}
+
+void dcRotateRight(int id) {
+  digitalWrite(DC_PIN_LEFT[id], LOW);
+  digitalWrite(DC_PIN_RIGHT[id], HIGH);
+}
+
+// Helper functions
 
 float calculateMagnitude(float x, float y, float z) {
   return sqrt(pow(x,2) + pow(y,2) + pow(z,2));
