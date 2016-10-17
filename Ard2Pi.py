@@ -4,8 +4,8 @@ import binascii
 import time
 import requests
 import json
-import Graph
-import Dijkstra
+from Graph import Graph
+from Dijkstra import Dijkstra
 
 # Define Constants
 SYN = 0
