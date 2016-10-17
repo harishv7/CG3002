@@ -44,7 +44,6 @@ def finalise_handshake():
             current_byte = port.read()
             packet_code = int(binascii.hexlify(current_byte), 16)
 
-        
             if(packet_code == DATA):
                 global first_packet_code
                 first_packet_code = packet_code
@@ -130,22 +129,44 @@ def convert_to_float(data):
     float_result = struct.unpack('>f', float_result)
     return float_result
 
-# Define port details
-port = serial.Serial(
-    "/dev/ttyAMA0",
-    baudrate = 115200,
-    timeout = 0
-)
+def main():
+   # Define port details
+   port = serial.Serial(
+       "/dev/ttyAMA0",
+       baudrate = 115200,
+       timeout = 0
+   )
+   
+   jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM1&Level=1")
 
-# Before we begin, we flush the port
-port.flushInput()
+   graph = Graph(jsonRequest.json())
+   
+   os.system("espeak -ven+f3 Please enter the source node ID")
+   source_id = input("Please enter the source node ID")
+   
+   shortest_path = Dijkstra(graph, source_id)
+   
+   os.system("espeak -ven+f3 Please enter your destination node ID")
+   destination_id = input("Please enter the destination node ID")
+   
+   distance = shortest_path.dist_to_node(destination_id)
+   path = shortest_path.get_path(destination_id)
+   
+   os.system("espeak -ven+f3 You are " + str(distance / 100) + " metres from your destination")
+   print(path)
+   
+   # Before we begin, we flush the port
+   port.flushInput()
 
-# Infinite loop to read data from port
-while True:
-    if (not is_SYN_sent):
-        initiate_handshake()
-    elif (not is_ACK_sent):
-        finalise_handshake()
-    elif (port.inWaiting() > 0):
-        buffer_data = readlineCR(port)
-        print(buffer_data)
+   # Infinite loop to read data from port
+   while True:
+       if (not is_SYN_sent):
+           initiate_handshake()
+       elif (not is_ACK_sent):
+           finalise_handshake()
+       elif (port.inWaiting() > 0):
+           buffer_data = readlineCR(port)
+           print(buffer_data)
+    
+if __name__ == "__main__":
+    main()
