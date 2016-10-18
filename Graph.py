@@ -52,11 +52,11 @@ class Graph:
             )
             self.edges.append(new_edge)
     
-    def get_node(self, node):
-        return self.node_map[node]
+    def get_node(self, node_id):
+        return self.node_map[node_id]
     
-    def get_degree(self, node):
-        return self.node_map[node].get_degree()
+    def get_degree(self, node_id):
+        return self.node_map[node_id].get_degree()
     
     def get_num_nodes(self):
         return self.num_nodes
