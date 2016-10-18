@@ -50,6 +50,9 @@ static char DC_LEFT = 0, DC_RIGHT = 1;
 const float ACCELERATION_THRESHOLD = 20000;
 const float DECELERATION_THRESHOLD = 14000;
 
+const float MAG_THRESHOLD = 180;
+const float MAG_NORMALIZER = 360;
+
 static char US_THRESHOLD_DISTANCE = 70;
 static char IR_THRESHOLD_DISTANCE = 50;
 
@@ -100,9 +103,11 @@ void setup() {
   Serial1.begin(115200);
   Serial1.flush();
 
+  Serial.println("Setting up wire interface");
   Wire.begin();
+  Serial.println("Wire interface setup successful");
   while (!accMag.init()) {
-    Serial.println("Failed to autodetect compass!");
+    Serial.println("Failed to autodetect accmag!");
   }
   accMag.enableDefault();
   Serial.println("Successful");
@@ -241,6 +246,9 @@ void imuAccRead() {
 void imuMagRead() {
   accMag.read();
   imuValue[MAG_HEADING_INDEX] = accMag.heading();
+  if (imuValue[MAG_HEADING_INDEX] > MAG_THRESHOLD) {
+     imuValue[MAG_HEADING_INDEX] = imuValue[MAG_HEADING_INDEX] - MAG_NORMALIZER;
+  }
 }
 
 void imuBarRead() {
