@@ -1,5 +1,8 @@
 import math
 import numpy as np
+from Node import Node
+from Edge import Edge
+from Constant import Constant
 
 # This class represents an undirected (bidirectional) graph with adjacency list approach in storing the neighbouring nodes
 class Graph:
@@ -70,8 +73,8 @@ class Graph:
     # This method returns the nearest edge from a point in cartesian coordinate
     def get_nearest_edge_from_point(self, x, y):
         nearest_edge = None
-        shortest_normal_length = math.inf
-        shortest_distance_to_nearest_node_in_edge = math.inf
+        shortest_normal_length = Constant.INF
+        shortest_distance_to_nearest_node_in_edge = Constant.INF
         
         for edge in self.edges:
             normal_length = edge.get_normal_length_from_point(x, y)

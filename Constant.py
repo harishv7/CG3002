@@ -7,3 +7,7 @@ class Constant:
     PI = math.acos(-1)
     EAST_TO_NORTH_ANGLE = 90
     DEGREE_TO_RADIAN_RATIO = 180 / PI
+    RADIAN_TO_DEGREE_RATIO = PI / 180
+    INF = 1000000007
+    AVERAGE_STEP_DISTANCE = 50
+    PROMPT_DELAY = 5

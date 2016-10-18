@@ -1,3 +1,5 @@
+import math
+from Constant import Constant
 import heapq
 
 # This class implements the Dijkstra algorithm and various utility methods related to it
@@ -14,7 +16,7 @@ class Dijkstra:
         
         for node in nodes:
             node_id = node.get_id()
-            self.dist_to[node_id] = math.inf
+            self.dist_to[node_id] = Constant.INF
             self.prev[node_id] = None
         self.dist_to[source] = 0.0
         

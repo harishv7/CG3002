@@ -1,11 +1,15 @@
+import os
 import serial
 import struct
 import binascii
 import time
 import requests
 import json
-import Graph
-import Dijkstra
+import math
+from Graph import Graph
+from Dijkstra import Dijkstra
+from Constant import Constant
+from GraphUtility import GraphUtility
 
 # Define Constants
 SYN = 0
@@ -108,14 +112,15 @@ def readlineCR(port):
         # Read checksum
         checksum = int(binascii.hexlify(port.read()), 16)
     except:
-        print("InvalidArgumentException")
         port.flushInput()
+        return (float('NaN'), float('NaN'), float('NaN'), float('NaN'), float('NaN'))
+        # print("InvalidArgumentException")
     
     # Return data together with stepcount
-    collated_data = [stepcount, data]
+    data.append(stepcount)
 
     # Return a tuple containing the size and data
-    return (packet_code, size, checksum, computed_checksum, collated_data)
+    return (packet_code, size, checksum, computed_checksum, data)
 
 # Converts the array of bytes into integer
 def convert_to_int(data):
@@ -133,44 +138,159 @@ def convert_to_float(data):
     float_result = struct.unpack('>f', float_result)
     return float_result
 
+# Define port details
+port = serial.Serial(
+	"/dev/ttyAMA0", 
+	baudrate = 115200, 
+	timeout = 0
+)
+
 def main():
-   # Define port details
-   port = serial.Serial(
-       "/dev/ttyAMA0",
-       baudrate = 115200,
-       timeout = 0
-   )
-   
-   jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM1&Level=1")
+    jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM1&Level=1")
 
-   graph = Graph(jsonRequest.json())
+    graph = Graph(jsonRequest.json())
    
-   os.system("espeak -ven+f3 Please enter the source node ID")
-   source_id = input("Please enter the source node ID")
+    os.system("espeak 'Please enter the source node ID' -w out.wav && aplay out.wav")
+    source_id = int(input("Please enter the source node ID: "))
    
-   shortest_path = Dijkstra(graph, source_id)
+    shortest_path = Dijkstra(graph, source_id)
    
-   os.system("espeak -ven+f3 Please enter your destination node ID")
-   destination_id = input("Please enter the destination node ID")
+    os.system("espeak 'Please enter your destination node ID' -w out.wav && aplay out.wav")
+    destination_id = int(input("Please enter the destination node ID: "))
    
-   distance = shortest_path.dist_to_node(destination_id)
-   path = shortest_path.get_path(destination_id)
-   
-   os.system("espeak -ven+f3 You are " + str(distance / 100) + " metres from your destination")
-   print(path)
-   
-   # Before we begin, we flush the port
-   port.flushInput()
+    distance = shortest_path.dist_to_node(destination_id)
+    path = shortest_path.get_path(destination_id)
 
-   # Infinite loop to read data from port
-   while True:
-       if (not is_SYN_sent):
-           initiate_handshake()
-       elif (not is_ACK_sent):
-           finalise_handshake()
-       elif (port.inWaiting() > 0):
-           buffer_data = readlineCR(port)
-           print(buffer_data)
+    os.system("espeak 'Hello Harish' -w out.wav && aplay out.wav")
+
+    prompt = "espeak \'You are " + str(distance / 100) + " metres from your destination\' -w out.wav && aplay out.wav"
+    os.system(prompt)
+    print(path)
+
+    os.system("espeak 'Attempting to connect with Arduino' -w out.wav && aplay out.wav")
+
+    is_first_data = True
+    last_step_count = 0
+    current_id_in_path = 0
+    next_id_in_path = 1
     
+    # Before we begin, we flush the port
+    port.flushInput()
+    
+    # Infinite loop to read data from port
+    while True:
+        if (not is_SYN_sent):
+            initiate_handshake()
+        elif (not is_ACK_sent):
+            finalise_handshake()
+        elif (port.inWaiting() > 0):
+            break
+
+    is_first_data = True
+    last_prompt_time = time.time()
+    last_step_count = 0
+    current_id_in_path = 0
+    current_node = graph.get_node(path[current_id_in_path])
+    next_id_in_path = 1
+    next_node = graph.get_node(path[next_id_in_path])
+    current_position_x = current_node.get_x()
+    current_position_y = current_node.get_y()
+
+    while True:
+        if (port.inWaiting() == 0):
+            continue;
+
+        buffer_data = readlineCR(port)
+        # If data is cut or corrupted
+        if (buffer_data[0] != buffer_data[0] or buffer_data[2] != buffer_data[3]):
+            continue
+        else:
+            print(buffer_data)
+            if (is_first_data):
+                rotate_direction = math.trunc(next_node.get_rotation_difference_from_node(
+                    current_node,
+                    buffer_data[4][0],
+                    graph.get_north_angle()
+                    ))
+                walk_distance = next_node.calculate_euclidean_distance_from_node(current_node)
+
+                print("To get to the next node (" + str(next_node) + "), you have to: ")
+                print("Rotate " + str(rotate_direction) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
+                
+                prompt = "espeak \'Rotate " + str(rotate_direction) + " degress and walk " + str(round(walk_distance / 100, 1)) + " meters\' -w out.wav && aplay out.wav"
+                os.system(prompt)
+                
+                last_prompt_time = time.time()
+                last_step_count = buffer_data[4][2]
+                is_first_data = False
+            else:
+                current_position_x += (math.sin(GraphUtility.calculate_map_aligned_angle(buffer_data[4][0], graph.get_north_angle()) * Constant.RADIAN_TO_DEGREE_RATIO) *
+                                       (buffer_data[4][2] - last_step_count) * Constant.AVERAGE_STEP_DISTANCE)
+                current_position_y += (math.cos(GraphUtility.calculate_map_aligned_angle(buffer_data[4][0], graph.get_north_angle()) * Constant.RADIAN_TO_DEGREE_RATIO) *
+                                       (buffer_data[4][2] - last_step_count) * Constant.AVERAGE_STEP_DISTANCE)
+
+                # If next node is reached
+                if (next_node.calculate_euclidean_distance_from_point(current_position_x, current_position_y) <= Constant.AVERAGE_STEP_DISTANCE):
+                    if (path[next_id_in_path] == destination_id):
+                        break
+                    
+                    current_id_in_path = next_id_in_path
+                    current_node = next_node
+
+                    next_id_in_path += 1
+                    next_node = graph.get_node(path[next_id_in_path])
+                
+                rotate_direction = math.trunc(next_node.get_rotation_difference_from_point(
+                    current_position_x,
+                    current_position_y,
+                    buffer_data[4][0],
+                    graph.get_north_angle()
+                    ))
+                walk_distance = next_node.calculate_euclidean_distance_from_point(current_position_x, current_position_y)
+
+                '''nearest_edge = graph.get_nearest_edge_from_point(current_position_x, current_position_y)
+                nearest_node = nearest_edge.get_nearest_node_from_point(current_position_x, current_position_y)
+                # If still within the designated path
+                if ((nearest_edge.get_either() == current_node and nearest_edge.get_other(current_node) == next_node) or
+                    (nearest_edge.get_either() == next_node and nearest_edge.get_other(next_node) == current_node)):
+                    rotate_direction = math.trunc(next_node.get_rotation_difference_from_point(
+                        current_position_x,
+                        current_position_y,
+                        buffer_data[4][0],
+                        graph.get_north_angle()
+                        ))
+                    walk_distance = next_node.calculate_euclidean_distance_from_point(current_position_x, current_position_y)
+                # Too far from designated path, reroute
+                else:
+                    print("Reroute")
+                    shortest_path = Dijkstra(graph, current_node.get_id())
+                    distance = shortest_path.dist_to_node(destination_id)
+                    path = shortest_path.get_path(destination)
+                    current_id_in_path = 0
+                    current_node = graph.get_node(path[current_id_in_path])
+                    next_id_in_path = 1
+                    next_node = graph.get_node(path[next_node_id_in_path])
+
+                    rotate_direction = math.trunc(next_node.get_rotation_difference_from_point(
+                        current_position_x,
+                        current_position_y,
+                        buffer_data[4][0],
+                        graph.get_north_angle()
+                        ))
+                    walk_distance = next_node.calculate_euclidean_distance_from_point(current_position_x, current_position_y)'''
+                    
+                last_step_count = buffer_data[4][2]
+
+                if (time.time() - last_prompt_time >= Constant.PROMPT_DELAY):
+                    print("To get to the next node (" + str(next_node) + "), you have to: ")
+                    print("Rotate " + str(rotate_direction) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
+                    
+                    prompt = "espeak \'Rotate " + str(rotate_direction) + " degress and walk " + str(round(walk_distance / 100, 1)) + " meters\' -w out.wav && aplay out.wav"
+                    os.system(prompt)
+
+                    last_prompt_time = time.time()
+
+                # print(str(current_position_x) + " " + str(current_position_y))
+
 if __name__ == "__main__":
     main()

@@ -1,3 +1,7 @@
+from Node import Node
+from GraphUtility import GraphUtility
+import numpy as np
+
 # This class represents a graph edge, its properties, and utility methods
 class Edge:
     
