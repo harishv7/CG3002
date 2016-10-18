@@ -1,5 +1,5 @@
 import os
-# import serial
+import serial
 import struct
 import binascii
 import time
@@ -141,11 +141,11 @@ def convert_to_float(data):
     return float_result
 
 # Serial port details
-'''port = serial.Serial(
+port = serial.Serial(
 	"/dev/ttyAMA0", 
 	baudrate = 115200, 
 	timeout = 0
-)'''
+)
 
 def main():
     jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM1&Level=1")
