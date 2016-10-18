@@ -29,12 +29,12 @@ const int SENSOR_READ_PERIOD = 50;
 const char SYN = 0;
 const char SYNACK = 1;
 const char ACK = 2;
-const char NACK = 3;
-const char DATA = 4;
+const char DATA = 3;
 
 // Declaration of indices
 
 const char SYNACK_INDEX = 0;
+
 const char PACKET_CODE_INDEX = 0;
 const char PAYLOAD_SIZE_INDEX = 1;
 
@@ -63,7 +63,7 @@ float imuValue[] = { NAN, NAN };
 
 float barEg = NAN;
 
-char sendBuffer[75]; // For transmitting data onto Arduino's USART
+char sendBuffer[15]; // For transmitting data onto Arduino's USART
 
 // For Handshake protocol between Arduino and RPi
 
@@ -153,9 +153,14 @@ void uartWrite() {
       sendBuffer[SYNACK_INDEX] = SYNACK;
       Serial1.write(sendBuffer, 1);
       Serial1.flush();
+      Serial.println("Sent SYNACK to RPi");
+      Serial.flush();
       synAckSendTime = millis();
     }
   } else if (is_ACK_Received == true && imuValue[MAG_HEADING_INDEX] == imuValue[MAG_HEADING_INDEX]) {
+    Serial.println("Send data to RPi");
+    Serial.flush();
+    
     char pedoOffset = 2;
     memcpy(sendBuffer + pedoOffset, &pedoValue, sizeof(pedoValue));
     payloadSize += sizeof(pedoValue);
@@ -184,8 +189,12 @@ void uartRead() {
 
     if (rpiPacket == SYN) {
       is_SYN_Received = true;
+      Serial.println("Received SYN from RPi");
+      Serial.flush();
     } else if (rpiPacket == ACK) {
       is_ACK_Received = true;
+      Serial.println("Received ACK from RPi");
+      Serial.flush();
     }
   }
 }
