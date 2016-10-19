@@ -153,14 +153,14 @@ def main():
 
     graph = Graph(jsonRequest.json())
 
-    source_id = int(input("Please enter your source node ID: "))
     os.system(ESPEAK_FORMAT.format("\'Please enter your source node ID\'"))
+    source_id = int(input("Please enter your source node ID: "))
 
     # Initialize shortest path from source
     shortest_path = Dijkstra(graph, source_id)
 
-    destination_id = int(input("Please enter your destination node ID: "))
     os.system(ESPEAK_FORMAT.format("\'Please enter your destination node ID\'"))
+    destination_id = int(input("Please enter your destination node ID: "))
 
     distance = shortest_path.dist_to_node(destination_id)
     path = shortest_path.get_path(destination_id)
