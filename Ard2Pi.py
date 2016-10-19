@@ -255,7 +255,7 @@ def main():
                 
 
                 # If deviating from designated path
-                if (Edge(current_node, next_node).get_normal_length_from_point(current_position_x, current_position_y) > DISTANCE_FROM_EDGE_THRESHOLD):
+                if (Edge(current_node, next_node).get_normal_length_from_point(current_position_x, current_position_y) > Constant.DISTANCE_FROM_EDGE_THRESHOLD):
                     print("Rerouting... Please wait")
                     os.system(ESPEAK_FORMAT.format(
                         "Rerouting... Please wait"
