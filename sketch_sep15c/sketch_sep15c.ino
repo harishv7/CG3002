@@ -10,8 +10,8 @@ LSM303 accMag;
 const char UART_PIN_TX = 18;
 const char UART_PIN_RX = 19;
 
-const char US_PIN_IN[] = { 23, 25, 27, 29 }; // Connected to ECHO pins of ultrasound sensors
-const char US_PIN_OUT[] = { 24, 26, 28, 39 }; // Connected to TRIGGER pins of ultrasound sensors
+const char US_PIN_IN[] = { 45, 47, 49, 51 }; // Connected to ECHO pins of ultrasound sensors
+const char US_PIN_OUT[] = { 46, 48, 50, 52 }; // Connected to TRIGGER pins of ultrasound sensors
 
 const char IR_PIN[] = { 2, 3, 4, 5 };
 
@@ -22,7 +22,8 @@ const char DC_PIN_RIGHT[] = { 7, 9 };
 
 const int UART_WRITE_PERIOD = 500;
 const int UART_READ_PERIOD = 500;
-const int SENSOR_READ_PERIOD = 50;
+const int IMU_READ_PERIOD = 50;
+const int SENSOR_READ_PERIOD = 100;
 
 // Declaration of packet codes 
 
@@ -54,7 +55,9 @@ const float MAG_THRESHOLD = 180;
 const float MAG_NORMALIZER = 360;
 
 static char US_THRESHOLD_DISTANCE = 70;
+static char US_MINIMUM_DISTANCE = 10;
 static char IR_THRESHOLD_DISTANCE = 50;
+static char IR_MINIMUM_DISTANCE = 10;
 
 long lastAccelerationTime;
 long pedoValue = 0;
@@ -76,7 +79,6 @@ unsigned long synAckSendTime = millis();
 
 CSmartTimer *timer1;
 CSmartTimer *timer2;
-CSmartTimer *timer3;
 
 void initializePins();
 void initializeTimers();
@@ -87,6 +89,7 @@ void imuRead();
 void imuAccRead();
 void imuMagRead();
 void imuBarRead();
+void obstacleRead();
 void usRead();
 void irRead();
 void dcWrite();
@@ -103,14 +106,13 @@ void setup() {
   Serial1.begin(115200);
   Serial1.flush();
 
-  Serial.println("Setting up wire interface");
   Wire.begin();
-  Serial.println("Wire interface setup successful");
   while (!accMag.init()) {
     Serial.println("Failed to autodetect accmag!");
   }
   accMag.enableDefault();
   Serial.println("Successful");
+  // Serial.flush();
 
   accMag.m_min = (LSM303::vector<int16_t>){-1832, -2342, -1505};
   accMag.m_max = (LSM303::vector<int16_t>){+2278, +2042, +2726};
@@ -124,16 +126,16 @@ void loop() {
 }
 
 void initializePins() {
-  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(int); i++) {
+  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
     pinMode(US_PIN_IN[i], INPUT);
     pinMode(US_PIN_OUT[i], OUTPUT);
   }
 
-  for (int i = 0; i < sizeof(IR_PIN) / sizeof(int); i++) {
+  for (int i = 0; i < sizeof(IR_PIN) / sizeof(IR_PIN[0]); i++) {
     pinMode(IR_PIN[i], INPUT);
   }
   
-  for (int i = 0; i < sizeof(DC_PIN_LEFT) / sizeof(int); i++) {
+  for (int i = 0; i < sizeof(DC_PIN_LEFT) / sizeof(DC_PIN_LEFT[0]); i++) {
     pinMode(DC_PIN_LEFT[i], OUTPUT);
     pinMode(DC_PIN_RIGHT[i], OUTPUT);
   }
@@ -141,11 +143,16 @@ void initializePins() {
 
 void initializeTimers() {
   timer1 = new CSmartTimer(STIMER1);
+  timer2 = new CSmartTimer(STIMER2);
+  
   timer1 -> attachCallback(uartWrite, UART_WRITE_PERIOD);
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
-  timer1 -> attachCallback(sensorRead, SENSOR_READ_PERIOD);
+  timer1 -> attachCallback(imuRead, IMU_READ_PERIOD);
+
+  timer2 -> attachCallback(sensorRead, SENSOR_READ_PERIOD);
   
   timer1 -> startTimer();
+  timer2 -> startTimer();
 }
 
 void uartWrite() {
@@ -163,9 +170,6 @@ void uartWrite() {
       synAckSendTime = millis();
     }
   } else if (is_ACK_Received == true && imuValue[MAG_HEADING_INDEX] == imuValue[MAG_HEADING_INDEX]) {
-    Serial.println("Send data to RPi");
-    Serial.flush();
-    
     char pedoOffset = 2;
     memcpy(sendBuffer + pedoOffset, &pedoValue, sizeof(pedoValue));
     payloadSize += sizeof(pedoValue);
@@ -202,14 +206,6 @@ void uartRead() {
       Serial.flush();
     }
   }
-}
-
-void sensorRead() {
-  imuRead();
-  //usRead();
-  //irRead();
-  
-  //dcWrite();
 }
 
 void imuRead() {
@@ -255,22 +251,28 @@ void imuBarRead() {
   imuValue[BAR_VALUE_INDEX] = barEg;
 }
 
+void sensorRead() {
+  usRead();
+  //irRead();
+  dcWrite();
+}
+
 void usRead() {
-  for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
+  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
     unsigned long echoDuration = pulse(US_PIN_OUT[i], US_PIN_IN[i]);
     usValue[i] = calculateDistance(echoDuration);
   }
 
   Serial.println("US:");
-  for (int i = 0; i < sizeof(usValue) / sizeof(float); i++) {
+  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
     Serial.println(usValue[i]);
   }
-
+  
   Serial.println();
 }
 
 void irRead() {
-  for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
+  for (int i = 0; i < sizeof(IR_PIN) / sizeof(IR_PIN[0]); i++) {
     int divisor = analogRead(IR_PIN[i]);
     if (divisor <= 3) {
       irValue[i] = INFINITY;
@@ -280,7 +282,7 @@ void irRead() {
   }
 
   Serial.println("IR:");
-  for (int i = 0; i < sizeof(irValue) / sizeof(float); i++) {
+  for (int i = 0; i < sizeof(IR_PIN) / sizeof(IR_PIN[0]); i++) {
     Serial.println(irValue[i]);
   }
 
@@ -291,14 +293,16 @@ void dcWrite() {
   dcTurnOff(DC_LEFT);
   dcTurnOff(DC_RIGHT);
   
-  if (usValue[US_LEFT] < US_THRESHOLD_DISTANCE || irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE) {
+  if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) || (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)) {
     dcRotateLeft(DC_LEFT);
   }
-  if (usValue[US_RIGHT] < US_THRESHOLD_DISTANCE || irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE) {
+  if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) || (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)) {
     dcRotateRight(DC_RIGHT);
   }
-  if (usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE || usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE || 
-      irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE || irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE) {
+  if ((usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_TOP] > US_MINIMUM_DISTANCE) || 
+      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE) || 
+      (irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_LEFT] > IR_MINIMUM_DISTANCE) || 
+      (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)) {
     dcRotateLeft(DC_LEFT);
     dcRotateRight(DC_RIGHT);
   }
@@ -334,7 +338,9 @@ unsigned long pulse(int triggerPin, int echoPin) {
 
   digitalWrite(triggerPin, LOW);
 
-  return pulseIn(echoPin, HIGH);
+  unsigned long something = 500;
+  something *= SENSOR_READ_PERIOD;
+  return pulseIn(echoPin, HIGH, something);
 }
 
 float calculateDistance(unsigned long duration) {
