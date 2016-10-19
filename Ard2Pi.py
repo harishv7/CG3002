@@ -7,6 +7,7 @@ import requests
 import json
 import math
 from Graph import Graph
+from Edge import Edge
 from Dijkstra import Dijkstra
 from Constant import Constant
 from GraphUtility import GraphUtility
@@ -217,7 +218,6 @@ def main():
                     )
                 walk_distance = next_node.calculate_euclidean_distance_from_node(current_node)
 
-                print("To get to the next node (" + str(next_node) + "), you have to: ")
                 print("Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
                 
                 os.system(ESPEAK_FORMAT.format(
@@ -239,9 +239,11 @@ def main():
                     Constant.DISTANCE_FROM_NODE_THRESHOLD):
                     # If this is the last node in the path, exit the program
                     if (path[next_id_in_path] == destination_id):
+                        print("You have reached your destination")
                         os.system(ESPEAK_FORMAT.format("You have reached your destination"))
                         break
                     else:
+                        print("You have reached the next node in the path: " + str(next_node))
                         os.system(ESPEAK_FORMAT.format("You have reached the next node in the path"))
                         port.flushInput()
                     
@@ -251,6 +253,27 @@ def main():
                     next_id_in_path += 1
                     next_node = graph.get_node(path[next_id_in_path])
                 
+
+                # If deviating from designated path
+                if (Edge(current_node, next_node).get_normal_length_from_point(current_position_x, current_position_y) > DISTANCE_FROM_EDGE_THRESHOLD):
+                    print("Rerouting... Please wait")
+                    os.system(ESPEAK_FORMAT.format(
+                        "Rerouting... Please wait"
+                        ))
+                    port.flushInput()
+
+                    nearest_edge = graph.get_nearest_edge_from_point(current_position_x, current_position_y)
+                    nearest_node = nearest_edge.get_nearest_node_from_point(current_position_x, current_position_y)
+                    other_node = nearest_edge.get_other(nearest_node)
+
+                    shortest_path = Dijkstra(graph, nearest_node.get_id())
+                    path = shortest_path.get_path(destination_id)
+
+                    current_id_in_path = -1
+                    current_node = other_node
+                    next_id_in_path = 0
+                    next_node = nearest_node
+
                 rotate_direction = next_node.get_rotation_difference_from_point(
                     current_position_x,
                     current_position_y,
@@ -258,11 +281,10 @@ def main():
                     graph.get_north_angle()
                     )
                 walk_distance = next_node.calculate_euclidean_distance_from_point(current_position_x, current_position_y)
-                
+
                 last_step_count = buffer_data[4][2]
                 # Check if it is time to prompt the user
                 if (time.time() - last_prompt_time >= Constant.PROMPT_DELAY):
-                    print("To get to the next node (" + str(next_node) + "), you have to: ")
                     print("Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
                     
                     os.system(ESPEAK_FORMAT.format(
