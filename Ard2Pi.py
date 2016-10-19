@@ -154,20 +154,20 @@ def main():
     graph = Graph(jsonRequest.json())
 
     source_id = int(input("Please enter your source node ID: "))
-    os.system(ESPEAK_FORMAT.format("Please enter your source node ID"))
+    os.system(ESPEAK_FORMAT.format("\'Please enter your source node ID\'"))
 
     # Initialize shortest path from source
     shortest_path = Dijkstra(graph, source_id)
 
     destination_id = int(input("Please enter your destination node ID: "))
-    os.system(ESPEAK_FORMAT.format("Please enter your destination node ID"))
+    os.system(ESPEAK_FORMAT.format("\'Please enter your destination node ID\'"))
 
     distance = shortest_path.dist_to_node(destination_id)
     path = shortest_path.get_path(destination_id)
 
-    os.system(ESPEAK_FORMAT.format("You are" + str(round(distance / 100, 1)) + " meters from your destination"))
+    os.system(ESPEAK_FORMAT.format("\'You are" + str(round(distance / 100, 1)) + " meters from your destination\'"))
 
-    os.system(ESPEAK_FORMAT.format("Attempting to establish connection with Arduino"))
+    os.system(ESPEAK_FORMAT.format("\'Attempting to establish connection with Arduino\'"))
 
     is_first_data = True
     last_step_count = 0
@@ -186,7 +186,7 @@ def main():
         elif (port.inWaiting() > 0):
             break
 
-    os.system(ESPEAK_FORMAT.format("Connection with Arduino has been established"))
+    os.system(ESPEAK_FORMAT.format("\'Connection with Arduino has been established\'"))
 
     is_first_data = True
     last_prompt_time = time.time()
@@ -221,7 +221,7 @@ def main():
                 print("Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
                 
                 os.system(ESPEAK_FORMAT.format(
-                    "Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters"
+                    "\'Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters\'"
                     ))
                 port.flushInput()
                 
@@ -240,11 +240,11 @@ def main():
                     # If this is the last node in the path, exit the program
                     if (path[next_id_in_path] == destination_id):
                         print("You have reached your destination")
-                        os.system(ESPEAK_FORMAT.format("You have reached your destination"))
+                        os.system(ESPEAK_FORMAT.format("\'You have reached your destination\'"))
                         break
                     else:
                         print("You have reached the next node in the path: " + str(next_node))
-                        os.system(ESPEAK_FORMAT.format("You have reached the next node in the path"))
+                        os.system(ESPEAK_FORMAT.format("\'You have reached the next node in the path\'"))
                         port.flushInput()
                     
                     # Update current and next nodes
@@ -258,7 +258,7 @@ def main():
                 if (Edge(current_node, next_node).get_normal_length_from_point(current_position_x, current_position_y) > Constant.DISTANCE_FROM_EDGE_THRESHOLD):
                     print("Rerouting... Please wait")
                     os.system(ESPEAK_FORMAT.format(
-                        "Rerouting... Please wait"
+                        "\'Rerouting... Please wait\'"
                         ))
                     port.flushInput()
 
@@ -288,7 +288,7 @@ def main():
                     print("Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
                     
                     os.system(ESPEAK_FORMAT.format(
-                        "Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters"
+                        "\'Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters\'"
                         ))
                     port.flushInput()
 
