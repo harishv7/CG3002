@@ -198,6 +198,7 @@ void uartRead() {
 
     if (rpiPacket == SYN) {
       is_SYN_Received = true;
+      is_ACK_Received = false;
       Serial.println("Received SYN from RPi");
       Serial.flush();
     } else if (rpiPacket == ACK) {
