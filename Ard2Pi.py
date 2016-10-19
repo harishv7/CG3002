@@ -20,7 +20,7 @@ DATA = 3
 # Handshake timeout duration in seconds
 HANDSHAKE_TIMEOUT = 2
 # Espeak cmd format
-ESPEAK_FORMAT = "espeak {0!s} -w out.wav && aplay out.wav"
+ESPEAK_FORMAT = "espeak {} -w out.wav && aplay out.wav"
 
 is_SYN_sent = False
 is_ACK_sent = False
