@@ -155,9 +155,18 @@ def main():
     os.system(ESPEAK_FORMAT.format("\'Please enter the level number\'"))
     level_num = int(input("Please enter the level number: "))
     
-    jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM" + str(building_num) + "&Level=" + str(level_num))
+    try:
+        jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM" + str(building_num) + "&Level=" + str(level_num))
+        json_data = jsonRequest.json()
+    # in the case of any exceptions use the cached map
+    except:
+        filename = "Building" + building_num + "Level" + level_num + ".json"
+        
+        # open local map file in map_cache
+        with open('map_cache/' + filename) as cached_data:
+            json_data = json.load(cached_data)
 
-    graph = Graph(jsonRequest.json())
+    graph = Graph(json_data)
 
     os.system(ESPEAK_FORMAT.format("\'Please enter your source node ID\'"))
     source_id = int(input("Please enter your source node ID: "))
