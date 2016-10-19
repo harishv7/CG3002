@@ -56,7 +56,7 @@ def finalise_handshake():
             current_byte = port.read()
             packet_code = int(binascii.hexlify(current_byte), 16)
 
-            if (packet_code != SNYACK):
+            if (packet_code != SYNACK):
                 global first_packet_code
                 first_packet_code = packet_code
                 print("DATA received")
