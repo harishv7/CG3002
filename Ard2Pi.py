@@ -149,7 +149,13 @@ port = serial.Serial(
 )
 
 def main():
-    jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM1&Level=1")
+    os.system(ESPEAK_FORMAT.format("\'Please enter the building number\'"))
+    building_num = int(input("Please enter the building number: "))
+    
+    os.system(ESPEAK_FORMAT.format("\'Please enter the level number\'"))
+    level_num = int(input("Please enter the level number: "))
+    
+    jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM" + str(building_num) + "&Level=" + str(level_num))
 
     graph = Graph(jsonRequest.json())
 
