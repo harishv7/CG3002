@@ -23,7 +23,8 @@ const char DC_PIN_RIGHT[] = { 7, 9 };
 const int UART_WRITE_PERIOD = 500;
 const int UART_READ_PERIOD = 500;
 const int IMU_READ_PERIOD = 50;
-const int SENSOR_READ_PERIOD = 100;
+const int SENSOR_READ_PERIOD = 1000;
+const int DC_WRITE_PERIOD = 1000;
 
 // Declaration of packet codes 
 
@@ -43,7 +44,7 @@ const char MAG_HEADING_INDEX = 0;
 const char BAR_VALUE_INDEX = 1;
 
 static char US_LEFT = 0, US_FRONT_TOP = 1, US_FRONT_BOTTOM = 2, US_RIGHT = 3;
-static char IR_LEFT = 0, IR_FRONT_LEFT = 2, IR_FRONT_RIGHT = 3, IR_RIGHT = 4;
+static char IR_LEFT = 0, IR_FRONT_LEFT = 1, IR_FRONT_RIGHT = 2, IR_RIGHT = 3;
 static char DC_LEFT = 0, DC_RIGHT = 1;
 
 // Declaration of thresholds
@@ -150,6 +151,7 @@ void initializeTimers() {
   timer1 -> attachCallback(imuRead, IMU_READ_PERIOD);
 
   timer2 -> attachCallback(sensorRead, SENSOR_READ_PERIOD);
+  timer2 -> attachCallback(dcWrite, DC_WRITE_PERIOD);
   
   timer1 -> startTimer();
   timer2 -> startTimer();
@@ -199,6 +201,7 @@ void uartRead() {
     if (rpiPacket == SYN) {
       is_SYN_Received = true;
       is_ACK_Received = false;
+      pedoValue = 0;
       Serial.println("Received SYN from RPi");
       Serial.flush();
     } else if (rpiPacket == ACK) {
@@ -255,7 +258,6 @@ void imuBarRead() {
 void sensorRead() {
   usRead();
   //irRead();
-  dcWrite();
 }
 
 void usRead() {
@@ -291,37 +293,43 @@ void irRead() {
 }
 
 void dcWrite() {
+  sei();
+  
   dcTurnOff(DC_LEFT);
   dcTurnOff(DC_RIGHT);
   
-  if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) || (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)) {
+  if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE)/* || (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)*/) {
     dcRotateLeft(DC_LEFT);
   }
-  if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) || (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)) {
+  if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_RIGHT] > US_MINIMUM_DISTANCE)/* || (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
     dcRotateRight(DC_RIGHT);
   }
   if ((usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_TOP] > US_MINIMUM_DISTANCE) || 
-      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE) || 
+      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE)/* || 
       (irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_LEFT] > IR_MINIMUM_DISTANCE) || 
-      (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)) {
+      (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
     dcRotateLeft(DC_LEFT);
     dcRotateRight(DC_RIGHT);
   }
 }
 
 void dcTurnOff(int id) {
-  digitalWrite(DC_PIN_LEFT[id], LOW);
-  digitalWrite(DC_PIN_RIGHT[id], LOW);
+  analogWrite(DC_PIN_LEFT[id], 0);
+  analogWrite(DC_PIN_RIGHT[id], 0);
 }
 
 void dcRotateLeft(int id) {
-  digitalWrite(DC_PIN_LEFT[id], HIGH);
-  digitalWrite(DC_PIN_RIGHT[id], LOW);
+  analogWrite(DC_PIN_LEFT[id], 255);
+  analogWrite(DC_PIN_RIGHT[id], 0);
+  delay(250);
+  dcTurnOff(id);
 }
 
 void dcRotateRight(int id) {
-  digitalWrite(DC_PIN_LEFT[id], LOW);
-  digitalWrite(DC_PIN_RIGHT[id], HIGH);
+  analogWrite(DC_PIN_LEFT[id], 0);
+  analogWrite(DC_PIN_RIGHT[id], 255);
+  delay(250);
+  dcTurnOff(id);
 }
 
 // Helper functions
@@ -339,9 +347,7 @@ unsigned long pulse(int triggerPin, int echoPin) {
 
   digitalWrite(triggerPin, LOW);
 
-  unsigned long something = 500;
-  something *= SENSOR_READ_PERIOD;
-  return pulseIn(echoPin, HIGH, something);
+  return pulseIn(echoPin, HIGH);
 }
 
 float calculateDistance(unsigned long duration) {
