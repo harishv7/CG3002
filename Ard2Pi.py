@@ -1,4 +1,5 @@
 import os
+import sys
 import serial
 import struct
 import binascii
@@ -327,7 +328,7 @@ def main():
     global flag_start
     # listen for escape key to restart program
     thread.start_new_thread(main_thread, ())
-    # thread.start_new_thread(reset, ())
+    thread.start_new_thread(reset, ())
     while(True):
         if(flag_start):
             flag_start = False
@@ -337,7 +338,7 @@ def reset():
     global flag_start
     global flag_kill
     while(True):
-        reset_string = input()
+        reset_string = sys.stdin.read(1)
         if(reset_string.find('\x1b') != -1):
             flag_start = True
             flag_kill = True
