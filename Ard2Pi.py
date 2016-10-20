@@ -20,7 +20,7 @@ DATA = 3
 # Handshake timeout duration in seconds
 HANDSHAKE_TIMEOUT = 2
 # Espeak cmd format
-ESPEAK_FORMAT = "espeak {} -w out.wav && aplay out.wav"
+ESPEAK_FORMAT = "espeak \'{}\' -w out.wav && aplay out.wav"
 
 is_SYN_sent = False
 is_ACK_sent = False
@@ -149,10 +149,10 @@ port = serial.Serial(
 )
 
 def main():
-    os.system(ESPEAK_FORMAT.format("\'Please enter the building number\'"))
+    os.system(ESPEAK_FORMAT.format("Please enter the building number"))
     building_num = int(input("Please enter the building number: "))
     
-    os.system(ESPEAK_FORMAT.format("\'Please enter the level number\'"))
+    os.system(ESPEAK_FORMAT.format("Please enter the level number"))
     level_num = int(input("Please enter the level number: "))
     
     try:
@@ -168,21 +168,21 @@ def main():
 
     graph = Graph(json_data)
 
-    os.system(ESPEAK_FORMAT.format("\'Please enter your source node ID\'"))
+    os.system(ESPEAK_FORMAT.format("Please enter your source node ID"))
     source_id = int(input("Please enter your source node ID: "))
 
     # Initialize shortest path from source
     shortest_path = Dijkstra(graph, source_id)
 
-    os.system(ESPEAK_FORMAT.format("\'Please enter your destination node ID\'"))
+    os.system(ESPEAK_FORMAT.format("Please enter your destination node ID"))
     destination_id = int(input("Please enter your destination node ID: "))
 
     distance = shortest_path.dist_to_node(destination_id)
     path = shortest_path.get_path(destination_id)
 
-    os.system(ESPEAK_FORMAT.format("\'You are" + str(round(distance / 100, 1)) + " meters from your destination\'"))
+    os.system(ESPEAK_FORMAT.format("You are" + str(round(distance / 100, 1)) + " meters from your destination"))
 
-    os.system(ESPEAK_FORMAT.format("\'Attempting to establish connection with Arduino\'"))
+    os.system(ESPEAK_FORMAT.format("Attempting to establish connection with Arduino"))
 
     is_first_data = True
     last_step_count = 0
@@ -201,7 +201,7 @@ def main():
         elif (port.inWaiting() > 0):
             break
 
-    os.system(ESPEAK_FORMAT.format("\'Connection with Arduino has been established\'"))
+    os.system(ESPEAK_FORMAT.format("Connection with Arduino has been established"))
 
     is_first_data = True
     last_prompt_time = time.time()
@@ -233,10 +233,10 @@ def main():
                     )
                 walk_distance = next_node.calculate_euclidean_distance_from_node(current_node)
 
-                print("Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
+                print("Rotate " + str(int(round(rotate_direction, 0))) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
                 
                 os.system(ESPEAK_FORMAT.format(
-                    "\'Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters\'"
+                    "Rotate " + str(int(round(rotate_direction, 0))) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters"
                     ))
                 port.flushInput()
                 
@@ -255,11 +255,11 @@ def main():
                     # If this is the last node in the path, exit the program
                     if (path[next_id_in_path] == destination_id):
                         print("You have reached your destination")
-                        os.system(ESPEAK_FORMAT.format("\'You have reached your destination\'"))
+                        os.system(ESPEAK_FORMAT.format("You have reached your destination"))
                         break
                     else:
                         print("You have reached the next node in the path: " + str(next_node))
-                        os.system(ESPEAK_FORMAT.format("\'You have reached the next node in the path\'"))
+                        os.system(ESPEAK_FORMAT.format("You have reached the next node in the path"))
                         port.flushInput()
                     
                     # Update current and next nodes
@@ -273,7 +273,7 @@ def main():
                 if (Edge(current_node, next_node).get_normal_length_from_point(current_position_x, current_position_y) > Constant.DISTANCE_FROM_EDGE_THRESHOLD):
                     print("Rerouting... Please wait")
                     os.system(ESPEAK_FORMAT.format(
-                        "\'Rerouting... Please wait\'"
+                        "Rerouting... Please wait"
                         ))
                     port.flushInput()
 
@@ -300,10 +300,10 @@ def main():
                 last_step_count = buffer_data[4][2]
                 # Check if it is time to prompt the user
                 if (time.time() - last_prompt_time >= Constant.PROMPT_DELAY):
-                    print("Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
+                    print("Rotate " + str(int(round(rotate_direction, 0))) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters")
                     
                     os.system(ESPEAK_FORMAT.format(
-                        "\'Rotate " + str(round(rotate_direction, 0)) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters\'"
+                        "Rotate " + str(int(round(rotate_direction, 0))) + " degrees and walk " + str(round(walk_distance / 100, 1)) + " meters"
                         ))
                     port.flushInput()
 
