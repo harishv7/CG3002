@@ -13,7 +13,7 @@ const char UART_PIN_RX = 19;
 const char US_PIN_IN[] = { 45, 47, 49, 51 }; // Connected to ECHO pins of ultrasound sensors
 const char US_PIN_OUT[] = { 46, 48, 50, 52 }; // Connected to TRIGGER pins of ultrasound sensors
 
-const char IR_PIN[] = { 2, 3, 4, 5 };
+const char IR_PIN[] = { 8, 7, 6, 5 };
 
 const char DC_PIN_LEFT[] = { 6, 8 };
 const char DC_PIN_RIGHT[] = { 7, 9 };
@@ -305,7 +305,7 @@ void dcWrite() {
     dcRotateRight(DC_RIGHT);
   }
   if ((usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_TOP] > US_MINIMUM_DISTANCE) || 
-      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE)/* || 
+      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE) /*|| 
       (irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_LEFT] > IR_MINIMUM_DISTANCE) || 
       (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
     dcRotateLeft(DC_LEFT);
