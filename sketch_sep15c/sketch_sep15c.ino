@@ -55,7 +55,7 @@ const float DECELERATION_THRESHOLD = 14000;
 const float MAG_THRESHOLD = 180;
 const float MAG_NORMALIZER = 360;
 
-static char US_THRESHOLD_DISTANCE = 70;
+static char US_THRESHOLD_DISTANCE = 100;
 static char US_MINIMUM_DISTANCE = 10;
 static char IR_THRESHOLD_DISTANCE = 50;
 static char IR_MINIMUM_DISTANCE = 10;
