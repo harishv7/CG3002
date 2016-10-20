@@ -327,7 +327,7 @@ def main():
     global flag_start
     # listen for escape key to restart program
     thread.start_new_thread(main_thread, ())
-    thread.start_new_thread(reset, ())
+    # thread.start_new_thread(reset, ())
     while(True):
         if(flag_start):
             flag_start = False
