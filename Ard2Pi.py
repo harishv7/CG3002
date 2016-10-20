@@ -336,7 +336,7 @@ def main():
 def reset():
     global flag_start
     global flag_kill
-    while(true):
+    while(True):
         reset_string = input()
         if(reset_string.find('\x1b') != -1):
             flag_start = True
