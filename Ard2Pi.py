@@ -176,13 +176,17 @@ def main_thread():
     graph = Graph(json_data)
 
     os.system(ESPEAK_FORMAT.format("Please enter your source node ID"))
-    source_id = int(input("Please enter your source node ID: "))
+    source_id = Constant.INF
+    while (source_id > graph.get_num_nodes()):
+        source_id = int(input("Please enter your source node ID: "))
 
     # Initialize shortest path from source
     shortest_path = Dijkstra(graph, source_id)
 
     os.system(ESPEAK_FORMAT.format("Please enter your destination node ID"))
-    destination_id = int(input("Please enter your destination node ID: "))
+    destination_id = Constant.INF
+    while (destination_id > graph.get_num_nodes()):
+        destination_id = int(input("Please enter your destination node ID: "))
 
     distance = shortest_path.dist_to_node(destination_id)
     path = shortest_path.get_path(destination_id)
@@ -219,7 +223,11 @@ def main_thread():
     last_step_count = 0
     current_id_in_path = 0
     current_node = graph.get_node(path[current_id_in_path])
-    next_id_in_path = 1
+    # Special case, source = destination
+    if (len(path) == 1):
+        next_id_in_path = 0
+    else:
+        next_id_in_path = 1
     next_node = graph.get_node(path[next_id_in_path])
     current_position_x = current_node.get_x()
     current_position_y = current_node.get_y()
