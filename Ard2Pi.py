@@ -78,20 +78,16 @@ def readlineCR(port):
     else:
         current_byte = port.read()
         packet_code = int(binascii.hexlify(current_byte), 16)
+       
+    current_byte = port.read()
+    size = int(binascii.hexlify(current_byte), 16)
     
-    try:
+    stepcount_bytes = []
+    for i in range(0, 4):
         current_byte = port.read()
-        size = int(binascii.hexlify(current_byte), 16)
-    
-        stepcount_bytes = []
-        for i in range(0, 4):
-            current_byte = port.read()
-            stepcount_bytes.append(binascii.hexlify(current_byte))
+        stepcount_bytes.append(binascii.hexlify(current_byte))
         
-            stepcount = convert_to_int(stepcount_bytes)[0]
-    except:
-        port.flushInput()
-        return (float('NaN'), float('NaN'), float('NaN'), float('NaN'), float('NaN'))
+    stepcount = convert_to_int(stepcount_bytes)[0]
 
     computed_checksum = computed_checksum ^ stepcount
     
