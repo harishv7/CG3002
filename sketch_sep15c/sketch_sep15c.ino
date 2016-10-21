@@ -322,10 +322,10 @@ void dcRotateRight(int id) {
 }
 
 void dcRotateBoth() {
-  analogWrite(DC_PIN_LEFT[DC_LEFT], 127);
-  analogWrite(DC_PIN_RIGHT[DC_LEFT], 0);
-  analogWrite(DC_PIN_LEFT[DC_RIGHT], 0);
-  analogWrite(DC_PIN_RIGHT[DC_RIGHT], 127);
+  analogWrite(DC_PIN_LEFT[DC_LEFT], 0);
+  analogWrite(DC_PIN_RIGHT[DC_LEFT], 255);
+  analogWrite(DC_PIN_LEFT[DC_RIGHT], 255);
+  analogWrite(DC_PIN_RIGHT[DC_RIGHT], 0);
 }
 
 // Helper functions
