@@ -15,6 +15,7 @@ const char US_PIN_OUT[] = { 46, 48, 50, 52 }; // Connected to TRIGGER pins of ul
 
 const char IR_PIN[] = { 8, 7, 6, 5 };
 
+// Pins 6 & 7 for left obstacle DC Motor and Pins 8 & 9 for right obstacle DC Motor
 const char DC_PIN_LEFT[] = { 6, 8 };
 const char DC_PIN_RIGHT[] = { 7, 9 };
 
@@ -55,10 +56,10 @@ const float DECELERATION_THRESHOLD = 14000;
 const float MAG_THRESHOLD = 180;
 const float MAG_NORMALIZER = 360;
 
-static char US_THRESHOLD_DISTANCE = 100;
-static char US_MINIMUM_DISTANCE = 10;
-static char IR_THRESHOLD_DISTANCE = 50;
-static char IR_MINIMUM_DISTANCE = 10;
+const float US_THRESHOLD_DISTANCE = 100;
+const float US_MINIMUM_DISTANCE = 10;
+const float IR_THRESHOLD_DISTANCE = 50;
+const float IR_MINIMUM_DISTANCE = 10;
 
 long lastAccelerationTime;
 long pedoValue = 0;
@@ -85,12 +86,10 @@ void initializePins();
 void initializeTimers();
 void uartWrite();
 void uartRead();
-void sensorRead();
 void imuRead();
 void imuAccRead();
 void imuMagRead();
 void imuBarRead();
-void obstacleRead();
 void usRead();
 void irRead();
 void dcWrite();
@@ -131,10 +130,6 @@ void initializePins() {
     pinMode(US_PIN_IN[i], INPUT);
     pinMode(US_PIN_OUT[i], OUTPUT);
   }
-
-  for (int i = 0; i < sizeof(IR_PIN) / sizeof(IR_PIN[0]); i++) {
-    pinMode(IR_PIN[i], INPUT);
-  }
   
   for (int i = 0; i < sizeof(DC_PIN_LEFT) / sizeof(DC_PIN_LEFT[0]); i++) {
     pinMode(DC_PIN_LEFT[i], OUTPUT);
@@ -150,7 +145,8 @@ void initializeTimers() {
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
   timer1 -> attachCallback(imuRead, IMU_READ_PERIOD);
 
-  timer2 -> attachCallback(sensorRead, SENSOR_READ_PERIOD);
+  timer2 -> attachCallback(irRead, SENSOR_READ_PERIOD);
+  timer2 -> attachCallback(usRead, SENSOR_READ_PERIOD);
   timer2 -> attachCallback(dcWrite, DC_WRITE_PERIOD);
   
   timer1 -> startTimer();
@@ -255,11 +251,6 @@ void imuBarRead() {
   imuValue[BAR_VALUE_INDEX] = barEg;
 }
 
-void sensorRead() {
-  usRead();
-  //irRead();
-}
-
 void usRead() {
   for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
     unsigned long echoDuration = pulse(US_PIN_OUT[i], US_PIN_IN[i]);
@@ -272,6 +263,7 @@ void usRead() {
   }
   
   Serial.println();
+  Serial.flush();
 }
 
 void irRead() {
@@ -290,24 +282,25 @@ void irRead() {
   }
 
   Serial.println();
+  Serial.flush();
 }
 
 void dcWrite() {
-  sei();
+  sei(); // enable all Arudino interrupts for delay() utilized
   
   dcTurnOff(DC_LEFT);
   dcTurnOff(DC_RIGHT);
   
-  if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE)/* || (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)*/) {
+  if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) || (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)) {
     dcRotateLeft(DC_LEFT);
   }
-  if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_RIGHT] > US_MINIMUM_DISTANCE)/* || (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
+  if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_RIGHT] > US_MINIMUM_DISTANCE) || (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)) {
     dcRotateRight(DC_RIGHT);
   }
   if ((usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_TOP] > US_MINIMUM_DISTANCE) || 
-      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE) /*|| 
+      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE) || 
       (irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_LEFT] > IR_MINIMUM_DISTANCE) || 
-      (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
+      (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)) {
     dcRotateLeft(DC_LEFT);
     dcRotateRight(DC_RIGHT);
   }
