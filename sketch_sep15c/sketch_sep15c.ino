@@ -50,8 +50,8 @@ static char DC_LEFT = 0, DC_RIGHT = 1;
 
 // Declaration of thresholds
 
-const float ACCELERATION_THRESHOLD = 19500;
-const float DECELERATION_THRESHOLD = 14000;
+const float ACCELERATION_THRESHOLD = 21000;
+const float DECELERATION_THRESHOLD = 13000;
 
 const float MAG_THRESHOLD = 180;
 const float MAG_NORMALIZER = 360;
@@ -145,7 +145,7 @@ void initializeTimers() {
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
   timer1 -> attachCallback(imuRead, IMU_READ_PERIOD);
 
-  timer2 -> attachCallback(irRead, SENSOR_READ_PERIOD);
+  //timer2 -> attachCallback(irRead, SENSOR_READ_PERIOD);
   timer2 -> attachCallback(usRead, SENSOR_READ_PERIOD);
   timer2 -> attachCallback(dcWrite, DC_WRITE_PERIOD);
   
@@ -224,18 +224,21 @@ void imuAccRead() {
 
   float accMagnitude = calculateMagnitude(accX, accY, accZ);
 
-  if (flag && (millis() - lastAccelerationTime >= 1000)) {
+  if (flag && (millis() - lastAccelerationTime >= 500)) {
     flag = false;
+    Serial.println("Flag reset");
   }
 
   if (accMagnitude >= ACCELERATION_THRESHOLD) {
     if (!flag) {
       pedoValue++;
+      Serial.println("Step detected");
       flag = true;
       lastAccelerationTime = millis();
     }
-  } else if (accMagnitude <= DECELERATION_THRESHOLD) {
+  } else if (flag && accMagnitude <= DECELERATION_THRESHOLD) {
     flag = false;
+    Serial.println("Flag reset");
   }
 }
 
@@ -263,7 +266,7 @@ void usRead() {
   }
   
   Serial.println();
-  Serial.flush();
+  //Serial.flush();
 }
 
 void irRead() {
@@ -282,25 +285,23 @@ void irRead() {
   }
 
   Serial.println();
-  Serial.flush();
+  //Serial.flush();
 }
 
 void dcWrite() {
-  sei(); // enable all Arudino interrupts for delay() utilized
-  
   dcTurnOff(DC_LEFT);
   dcTurnOff(DC_RIGHT);
   
-  if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) || (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)) {
+  if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) /*|| (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)*/) {
     dcRotateLeft(DC_LEFT);
   }
-  if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_RIGHT] > US_MINIMUM_DISTANCE) || (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)) {
+  if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_RIGHT] > US_MINIMUM_DISTANCE) /*|| (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
     dcRotateRight(DC_RIGHT);
   }
   if ((usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_TOP] > US_MINIMUM_DISTANCE) || 
-      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE) || 
+      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE)/* || 
       (irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_LEFT] > IR_MINIMUM_DISTANCE) || 
-      (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)) {
+      (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
     dcRotateBoth();
   }
 }
@@ -311,27 +312,20 @@ void dcTurnOff(int id) {
 }
 
 void dcRotateLeft(int id) {
-  analogWrite(DC_PIN_LEFT[id], 255);
+  analogWrite(DC_PIN_LEFT[id], 127);
   analogWrite(DC_PIN_RIGHT[id], 0);
-  delay(250);
-  dcTurnOff(id);
 }
 
 void dcRotateRight(int id) {
   analogWrite(DC_PIN_LEFT[id], 0);
-  analogWrite(DC_PIN_RIGHT[id], 255);
-  delay(250);
-  dcTurnOff(id);
+  analogWrite(DC_PIN_RIGHT[id], 127);
 }
 
 void dcRotateBoth() {
-  analogWrite(DC_PIN_LEFT[DC_LEFT], 255);
+  analogWrite(DC_PIN_LEFT[DC_LEFT], 127);
   analogWrite(DC_PIN_RIGHT[DC_LEFT], 0);
   analogWrite(DC_PIN_LEFT[DC_RIGHT], 0);
-  analogWrite(DC_PIN_RIGHT[DC_RIGHT], 255);
-  delay(250);
-  dcTurnOff(DC_LEFT);
-  dcTurnOff(DC_RIGHT);
+  analogWrite(DC_PIN_RIGHT[DC_RIGHT], 127);
 }
 
 // Helper functions
@@ -349,7 +343,7 @@ unsigned long pulse(int triggerPin, int echoPin) {
 
   digitalWrite(triggerPin, LOW);
 
-  return pulseIn(echoPin, HIGH);
+  return pulseIn(echoPin, HIGH, 40000);
 }
 
 float calculateDistance(unsigned long duration) {
