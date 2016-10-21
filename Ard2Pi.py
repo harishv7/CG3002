@@ -132,8 +132,8 @@ def readlineCR(port):
         checksum = int(binascii.hexlify(port.read()), 16)
     except:
         port.flushInput()
+        print("InvalidArgumentException")
         return (float('NaN'), float('NaN'), float('NaN'), float('NaN'), float('NaN'))
-        # print("InvalidArgumentException")
     
     # Return data together with stepcount
     data.append(stepcount)
@@ -176,6 +176,7 @@ def main():
         json_data = jsonRequest.json()
     # in the case of any exceptions use the cached map
     except:
+        print("Network error in getting map")
         filename = "Building" + building_num + "Level" + level_num + ".json"
         
         # open local map file in map_cache
