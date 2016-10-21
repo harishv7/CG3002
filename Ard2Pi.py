@@ -29,9 +29,6 @@ is_ACK_sent = False
 
 first_packet_code = -1
 
-flag_start = False
-flag_kill = False
-
 def initiate_handshake():
     global is_SYN_sent
     print("Sending SYN")
@@ -153,9 +150,7 @@ port = serial.Serial(
 	timeout = 0
 )
 
-def main_thread():
-    global flag_kill
-    
+def main():
     os.system(ESPEAK_FORMAT.format("Please enter the building number"))
     building_num = int(input("Please enter the building number: "))
     
@@ -205,10 +200,6 @@ def main_thread():
     
     # Connection establishment loop (handshake protocol)
     while True:
-        if(flag_kill):
-            flag_kill = False
-            return
-        
         if (not is_SYN_sent):
             initiate_handshake()
         elif (not is_ACK_sent):
@@ -233,10 +224,6 @@ def main_thread():
     current_position_y = current_node.get_y()
 
     while True:
-        if(flag_kill):
-            flag_kill = False
-            return
-        
         if (port.inWaiting() == 0):
             continue;
 
@@ -333,25 +320,6 @@ def main_thread():
                     port.flushInput()
 
                     last_prompt_time = time.time()
-
-def main():
-    global flag_start
-    # listen for escape key to restart program
-    thread.start_new_thread(main_thread, ())
-    # thread.start_new_thread(reset, ())
-    while(True):
-        if(flag_start):
-            flag_start = False
-            thread.start_new_thread(main_thread, ())
-    
-def reset():
-    global flag_start
-    global flag_kill
-    while(True):
-        reset_string = sys.stdin.read(1)
-        if(reset_string.find('\x1b') != -1):
-            flag_start = True
-            flag_kill = True
 
 if __name__ == "__main__":
     main()
