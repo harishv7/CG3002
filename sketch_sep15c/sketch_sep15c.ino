@@ -301,8 +301,7 @@ void dcWrite() {
       (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE) || 
       (irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_LEFT] > IR_MINIMUM_DISTANCE) || 
       (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)) {
-    dcRotateLeft(DC_LEFT);
-    dcRotateRight(DC_RIGHT);
+    dcRotateBoth();
   }
 }
 
@@ -323,6 +322,16 @@ void dcRotateRight(int id) {
   analogWrite(DC_PIN_RIGHT[id], 255);
   delay(250);
   dcTurnOff(id);
+}
+
+void dcRotateBoth() {
+  analogWrite(DC_PIN_LEFT[DC_LEFT], 255);
+  analogWrite(DC_PIN_RIGHT[DC_LEFT], 0);
+  analogWrite(DC_PIN_LEFT[DC_RIGHT], 0);
+  analogWrite(DC_PIN_RIGHT[DC_RIGHT], 255);
+  delay(250);
+  dcTurnOff(DC_LEFT);
+  dcTurnOff(DC_RIGHT);
 }
 
 // Helper functions
