@@ -50,7 +50,7 @@ static char DC_LEFT = 0, DC_RIGHT = 1;
 
 // Declaration of thresholds
 
-const float ACCELERATION_THRESHOLD = 20000;
+const float ACCELERATION_THRESHOLD = 19500;
 const float DECELERATION_THRESHOLD = 14000;
 
 const float MAG_THRESHOLD = 180;
@@ -58,7 +58,7 @@ const float MAG_NORMALIZER = 360;
 
 const float US_THRESHOLD_DISTANCE = 100;
 const float US_MINIMUM_DISTANCE = 10;
-const float IR_THRESHOLD_DISTANCE = 50;
+const float IR_THRESHOLD_DISTANCE = 70;
 const float IR_MINIMUM_DISTANCE = 10;
 
 long lastAccelerationTime;
