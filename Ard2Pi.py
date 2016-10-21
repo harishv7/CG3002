@@ -163,7 +163,7 @@ def main_thread():
     level_num = int(input("Please enter the level number: "))
     
     try:
-        jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=COM" + str(building_num) + "&Level=" + str(level_num))
+        jsonRequest = requests.get("http://showmyway.comp.nus.edu.sg/getMapInfo.php?Building=" + str(building_num) + "&Level=" + str(level_num))
         json_data = jsonRequest.json()
     # in the case of any exceptions use the cached map
     except:
@@ -271,10 +271,12 @@ def main_thread():
                     if (path[next_id_in_path] == destination_id):
                         print("You have reached your destination")
                         os.system(ESPEAK_FORMAT.format("You have reached your destination"))
+                        os.system(ESPEAK_FORMAT.format("Destination ID is " + str(destination_id)))
                         break
                     else:
                         print("You have reached the next node in the path: " + str(next_node))
                         os.system(ESPEAK_FORMAT.format("You have reached the next node in the path"))
+                        os.system(ESPEAK_FORMAT.format("Node ID is " + str(next_node.get_id())))
                         port.flushInput()
                     
                     # Update current and next nodes
