@@ -15,9 +15,7 @@ const char US_PIN_OUT[] = { 46, 48, 50, 52 }; // Connected to TRIGGER pins of ul
 
 const char IR_PIN[] = { 8, 7, 6, 5 };
 
-// Pins 6 & 7 for left obstacle DC Motor and Pins 8 & 9 for right obstacle DC Motor
-const char DC_PIN_LEFT[] = { 6, 8 };
-const char DC_PIN_RIGHT[] = { 7, 9 };
+const char VIB_PIN[] = { 6, 7, 8 };
 
 // Declaration of poll periods (in ms)
 
@@ -25,7 +23,7 @@ const int UART_WRITE_PERIOD = 500;
 const int UART_READ_PERIOD = 500;
 const int IMU_READ_PERIOD = 50;
 const int SENSOR_READ_PERIOD = 1000;
-const int DC_WRITE_PERIOD = 1000;
+const int VIB_WRITE_PERIOD = 1000;
 
 // Declaration of packet codes 
 
@@ -47,6 +45,7 @@ const char BAR_VALUE_INDEX = 1;
 static char US_LEFT = 0, US_FRONT_TOP = 1, US_FRONT_BOTTOM = 2, US_RIGHT = 3;
 static char IR_LEFT = 0, IR_FRONT_LEFT = 1, IR_FRONT_RIGHT = 2, IR_RIGHT = 3;
 static char DC_LEFT = 0, DC_RIGHT = 1;
+static char VIB_LEFT = 0, VIB_FRONT = 1, VIB_RIGHT = 2;
 
 // Declaration of thresholds
 
@@ -92,10 +91,9 @@ void imuMagRead();
 void imuBarRead();
 void usRead();
 void irRead();
-void dcWrite();
-void dcTurnOff(int id);
-void dcRotateLeft(int id);
-void dcRotateRight(int id);
+void vibWrite();
+void vibTurnOff();
+void vibTurnOn();
 
 float calculateMagnitude(float x, float y, float z);
 unsigned long pulse(int triggerPin, int echoPin);
@@ -130,10 +128,9 @@ void initializePins() {
     pinMode(US_PIN_IN[i], INPUT);
     pinMode(US_PIN_OUT[i], OUTPUT);
   }
-  
-  for (int i = 0; i < sizeof(DC_PIN_LEFT) / sizeof(DC_PIN_LEFT[0]); i++) {
-    pinMode(DC_PIN_LEFT[i], OUTPUT);
-    pinMode(DC_PIN_RIGHT[i], OUTPUT);
+
+  for (int i = 0; i < sizeof(VIB_PIN) / sizeof(VIB_PIN[0]); i++) {
+    pinMode(VIB_PIN[i], OUTPUT);
   }
 }
 
@@ -147,7 +144,7 @@ void initializeTimers() {
 
   //timer2 -> attachCallback(irRead, SENSOR_READ_PERIOD);
   timer2 -> attachCallback(usRead, SENSOR_READ_PERIOD);
-  timer2 -> attachCallback(dcWrite, DC_WRITE_PERIOD);
+  timer2 -> attachCallback(vibWrite, VIB_WRITE_PERIOD);
   
   timer1 -> startTimer();
   timer2 -> startTimer();
@@ -226,19 +223,16 @@ void imuAccRead() {
 
   if (flag && (millis() - lastAccelerationTime >= 500)) {
     flag = false;
-    Serial.println("Flag reset");
   }
 
   if (accMagnitude >= ACCELERATION_THRESHOLD) {
     if (!flag) {
       pedoValue++;
-      Serial.println("Step detected");
       flag = true;
       lastAccelerationTime = millis();
     }
   } else if (flag && accMagnitude <= DECELERATION_THRESHOLD) {
     flag = false;
-    Serial.println("Flag reset");
   }
 }
 
@@ -288,44 +282,31 @@ void irRead() {
   //Serial.flush();
 }
 
-void dcWrite() {
-  dcTurnOff(DC_LEFT);
-  dcTurnOff(DC_RIGHT);
+void vibWrite() {
+  vibTurnOff(VIB_LEFT);
+  vibTurnOff(VIB_FRONT);
+  vibTurnOff(VIB_RIGHT);
   
   if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) /*|| (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)*/) {
-    dcRotateLeft(DC_LEFT);
+    vibTurnOn(VIB_LEFT);
   }
   if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_RIGHT] > US_MINIMUM_DISTANCE) /*|| (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
-    dcRotateRight(DC_RIGHT);
+    vibTurnOn(VIB_RIGHT);
   }
   if ((usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_TOP] > US_MINIMUM_DISTANCE) || 
       (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE)/* || 
       (irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_LEFT] > IR_MINIMUM_DISTANCE) || 
       (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
-    dcRotateBoth();
+    vibTurnOn(VIB_FRONT);
   }
 }
 
-void dcTurnOff(int id) {
-  analogWrite(DC_PIN_LEFT[id], 0);
-  analogWrite(DC_PIN_RIGHT[id], 0);
+void vibTurnOff(char id) {
+  digitalWrite(VIB_PIN[id], LOW);
 }
 
-void dcRotateLeft(int id) {
-  analogWrite(DC_PIN_LEFT[id], 127);
-  analogWrite(DC_PIN_RIGHT[id], 0);
-}
-
-void dcRotateRight(int id) {
-  analogWrite(DC_PIN_LEFT[id], 0);
-  analogWrite(DC_PIN_RIGHT[id], 127);
-}
-
-void dcRotateBoth() {
-  analogWrite(DC_PIN_LEFT[DC_LEFT], 0);
-  analogWrite(DC_PIN_RIGHT[DC_LEFT], 255);
-  analogWrite(DC_PIN_LEFT[DC_RIGHT], 255);
-  analogWrite(DC_PIN_RIGHT[DC_RIGHT], 0);
+void vibTurnOn(char id) {
+  digitalWrite(VIB_PIN[id], HIGH);
 }
 
 // Helper functions
