@@ -52,6 +52,15 @@ class Point:
 	def get_y(self):
 		return self.y
 
+	def calculate_rotation_from(self, other, graph_aligned_heading_angle):
+		cartesian_rotation = math.atan2(self.y - other.get_y(), self.x - other.get_x()) * Constant.RADIAN_TO_DEGREE
+		absolute_rotation = 90 - cartesian_rotation - graph_aligned_heading_angle
+		if (absolute_rotation <= -180):
+			absolute_rotation += 360
+		else if (absolute_rotation > 180):
+			absolute_rotation -= 360
+		return absolute_rotation
+
 	def __add__(self, other):
 		return Point(self.get_x() + other.get_x(), self.get_y() + other.get_y())
 
@@ -174,6 +183,8 @@ class Graph:
 		if (json is not None):
 			# Get the north angle information
 			self.north_angle = float(json["info"]["northAt"])
+			if (self.north_angle > 180):
+				self.north_angle -= 360
 			# Get all node information
 			for node_info in json["map"]:
 				node_id = int(node_info["nodeId"])
@@ -265,8 +276,6 @@ class Graph:
 		return (distance_to[target_id], path_to_target[::-1])
 
 	def calculate_graph_aligned_angle(self, north_aligned_angle):
-		if (self.north_angle > 180):
-            self.north_angle -= 360
         map_aligned_angle = north_aligned_angle + self.north_angle
         if (map_aligned_angle <= -180):
             map_aligned_angle += 360
@@ -600,7 +609,7 @@ def main():
 	path_iter += 1
 	next_node = id_to_node_map[path[path_iter]]
 	path_iter += 1
-	current_position = Point(last_node.get_position())
+	current_position = last_node.get_position()
 	last_prompt_time = time.time()
 	last_step_count = 0
 	is_initial_data = True
@@ -613,11 +622,12 @@ def main():
 		heading_angle = data[1]
 		surface_height = data[2]
 		print(step_count, heading_angle, surface_height)
-		if (is_initial_data):
-			rotate_direction = next_node.get_position().calculate_rotation_from(last_node.get_position())
-			walk_distance = Point.calculate_euclidean_distance(last_node.get_position(), next_node.get_position())
-			num_steps = walk_distance / Constant.AVERAGE_STEP_DISTANCE
 
+		rotate_direction = next_node.get_position().calculate_rotation_from(current_position, calculate_graph_aligned_angle(heading_angle))
+		walk_distance = Point.calculate_euclidean_distance(current_position, next_node.get_position())
+		num_steps = int(round(walk_distance / Constant.AVERAGE_STEP_DISTANCE, 0))
+
+		if (is_initial_data):
 			os.system(Constant.ESPEAK_FORMAT.format("Rotate " + str(int(round(rotate_direction, 0))) + " degrees and walk " + str(num_steps) + " steps"))
 			print("Rotate " + str(int(round(rotate_direction, 0))) + " degrees and walk " + str(num_steps) + " steps")
 			port.flushInput()

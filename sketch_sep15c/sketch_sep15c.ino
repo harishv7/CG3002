@@ -15,8 +15,8 @@ const char US_LEFT = 4, US_FRONT = 2, US_RIGHT = 0, US_LEG_LEFT = 5, US_LEG_RIGH
 const char US_PIN_IN[] = { 42, 44, 46, 48, 50, 52 }; // Connected to ECHO pins of ultrasound sensors
 const char US_PIN_OUT[] = { 43, 45, 47, 49, 51, 53 }; // Connected to TRIGGER pins of ultrasound sensors
 
-const char US_MIN_THRESHOLD[] = { 10, 10, 10, 10, 10, 10 };
-const char US_MAX_THRESHOLD[] = { 80, 140, 100, 80, 80, 140 };
+const int US_MIN_THRESHOLD[] = { 10, 10, 10, 10, 10, 10 };
+const int US_MAX_THRESHOLD[] = { 80, 120, 120, 100, 80, 120 };
 
 const char VIB_LEFT = 3, VIB_FRONT = 2, VIB_RIGHT = 1, VIB_ARM = 0;
 
@@ -28,7 +28,6 @@ const int UART_WRITE_PERIOD = 500;
 const int UART_READ_PERIOD = 500;
 const int IMU_READ_PERIOD = 50;
 const int SENSOR_READ_PERIOD = 1000;
-const int VIB_WRITE_PERIOD = 1000;
 
 // Declaration of packet codes 
 
@@ -42,7 +41,6 @@ const char DATA = 3;
 const char SYNACK_INDEX = 0;
 
 const char PACKET_CODE_INDEX = 0;
-const char PAYLOAD_SIZE_INDEX = 1;
 
 const char MAG_HEADING_INDEX = 0;
 const char BAR_VALUE_INDEX = 1;
@@ -62,9 +60,9 @@ bool flag = false;
 float usValue[] = { NAN, NAN, NAN, NAN, NAN, NAN };
 float imuValue[] = { NAN, NAN };
 
-float barEg = NAN;
+float barEg = 45.5;
 
-char sendBuffer[15]; // For transmitting data onto Arduino's USART
+char sendBuffer[18]; // For transmitting data onto Arduino's USART
 
 // For Handshake protocol between Arduino and RPi
 
@@ -137,7 +135,6 @@ void initializeTimers() {
   timer1 -> attachCallback(imuRead, IMU_READ_PERIOD);
 
   timer2 -> attachCallback(usRead, SENSOR_READ_PERIOD);
-  timer2 -> attachCallback(vibWrite, VIB_WRITE_PERIOD);
   
   timer1 -> startTimer();
   timer2 -> startTimer();
@@ -146,7 +143,7 @@ void initializeTimers() {
 void uartWrite() {
   char payloadSize = 0;
   char packetCode = DATA;
-  char checksum = 0;
+  long checksum = 0;
 
   if (is_SYN_Received == true && is_ACK_Received == false) {
     if (millis() - synAckSendTime >= 1000) { 
@@ -158,24 +155,23 @@ void uartWrite() {
       synAckSendTime = millis();
     }
   } else if (is_ACK_Received == true && imuValue[MAG_HEADING_INDEX] == imuValue[MAG_HEADING_INDEX]) {
-    char pedoOffset = 2;
+    char pedoOffset = 1;
     memcpy(sendBuffer + pedoOffset, &pedoValue, sizeof(pedoValue));
     payloadSize += sizeof(pedoValue);
 
-    char imuOffset = pedoOffset + payloadSize;
+    char imuOffset = pedoOffset + sizeof(pedoValue);
     memcpy(sendBuffer + imuOffset, imuValue, sizeof(imuValue));
     payloadSize += sizeof(imuValue);
      
-    for (int j = pedoOffset; j <= payloadSize + 1; j++) {
-      checksum ^= sendBuffer[j];
-    }
+    checksum = pedoValue ^ (long) imuValue[MAG_HEADING_INDEX] ^ (long) imuValue[BAR_VALUE_INDEX]; // Checksum obtained by XORing 4 byte quantities
 
     sendBuffer[PACKET_CODE_INDEX] = packetCode;
-    sendBuffer[PAYLOAD_SIZE_INDEX] = payloadSize;
-    sendBuffer[payloadSize + 2] = '\r';
-    sendBuffer[payloadSize + 3] = checksum;    
+    
+    char checksumOffset = imuOffset + sizeof(imuValue);
+    memcpy(sendBuffer + checksumOffset, &checksum, sizeof(checksum));
+    payloadSize += sizeof(checksum);   
 
-    Serial1.write(sendBuffer, payloadSize + 4);
+    Serial1.write(sendBuffer, payloadSize + 1);
     Serial1.flush();
   }
 }
@@ -246,12 +242,7 @@ void usRead() {
     usValue[i] = calculateDistance(echoDuration);
   }
   
-  Serial.println("US:");
-  for (i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
-    Serial.println(usValue[i]);
-  }
-  
-  Serial.println();
+  vibWrite();
 }
 
 void vibWrite() {
