@@ -3,19 +3,24 @@
 #include <Wire.h>
 #include <LSM303.h>
 
-LSM303 accMag;
+LSM303 imu;
 
 // Declaration of pins for sensors and actuators
 
 const char UART_PIN_TX = 18;
 const char UART_PIN_RX = 19;
 
-const char US_PIN_IN[] = { 45, 47, 49, 51 }; // Connected to ECHO pins of ultrasound sensors
-const char US_PIN_OUT[] = { 46, 48, 50, 52 }; // Connected to TRIGGER pins of ultrasound sensors
+const char US_LEFT = 4, US_FRONT = 2, US_RIGHT = 0, US_LEG_LEFT = 5, US_LEG_RIGHT = 1, US_ARM = 3;
 
-const char IR_PIN[] = { 8, 7, 6, 5 };
+const char US_PIN_IN[] = { 42, 44, 46, 48, 50, 52 }; // Connected to ECHO pins of ultrasound sensors
+const char US_PIN_OUT[] = { 43, 45, 47, 49, 51, 53 }; // Connected to TRIGGER pins of ultrasound sensors
 
-const char VIB_PIN[] = { 6, 7, 8 };
+const char US_MIN_THRESHOLD[] = { 10, 10, 10, 10, 10, 10 };
+const char US_MAX_THRESHOLD[] = { 80, 140, 100, 80, 80, 140 };
+
+const char VIB_LEFT = 3, VIB_FRONT = 2, VIB_RIGHT = 1, VIB_ARM = 0;
+
+const char VIB_PIN[] = { 7, 9, 11, 13 };
 
 // Declaration of poll periods (in ms)
 
@@ -42,11 +47,6 @@ const char PAYLOAD_SIZE_INDEX = 1;
 const char MAG_HEADING_INDEX = 0;
 const char BAR_VALUE_INDEX = 1;
 
-static char US_LEFT = 0, US_FRONT_TOP = 1, US_FRONT_BOTTOM = 2, US_RIGHT = 3;
-static char IR_LEFT = 0, IR_FRONT_LEFT = 1, IR_FRONT_RIGHT = 2, IR_RIGHT = 3;
-static char DC_LEFT = 0, DC_RIGHT = 1;
-static char VIB_LEFT = 0, VIB_FRONT = 1, VIB_RIGHT = 2;
-
 // Declaration of thresholds
 
 const float ACCELERATION_THRESHOLD = 21000;
@@ -55,17 +55,11 @@ const float DECELERATION_THRESHOLD = 13000;
 const float MAG_THRESHOLD = 180;
 const float MAG_NORMALIZER = 360;
 
-const float US_THRESHOLD_DISTANCE = 100;
-const float US_MINIMUM_DISTANCE = 10;
-const float IR_THRESHOLD_DISTANCE = 70;
-const float IR_MINIMUM_DISTANCE = 10;
-
 long lastAccelerationTime;
 long pedoValue = 0;
 bool flag = false;
 
-float usValue[] = { NAN, NAN, NAN, NAN };
-float irValue[] = { NAN, NAN, NAN, NAN };
+float usValue[] = { NAN, NAN, NAN, NAN, NAN, NAN };
 float imuValue[] = { NAN, NAN };
 
 float barEg = NAN;
@@ -90,7 +84,6 @@ void imuAccRead();
 void imuMagRead();
 void imuBarRead();
 void usRead();
-void irRead();
 void vibWrite();
 void vibTurnOff();
 void vibTurnOn();
@@ -105,15 +98,15 @@ void setup() {
   Serial1.flush();
 
   Wire.begin();
-  while (!accMag.init()) {
+  while (!imu.init()) {
     Serial.println("Failed to autodetect accmag!");
   }
-  accMag.enableDefault();
+  imu.enableDefault();
   Serial.println("Successful");
   // Serial.flush();
 
-  accMag.m_min = (LSM303::vector<int16_t>){-1832, -2342, -1505};
-  accMag.m_max = (LSM303::vector<int16_t>){+2278, +2042, +2726};
+  imu.m_min = (LSM303::vector<int16_t>){-1832, -2342, -1505};
+  imu.m_max = (LSM303::vector<int16_t>){+2278, +2042, +2726};
   
   initializePins();
   initializeTimers();
@@ -124,12 +117,13 @@ void loop() {
 }
 
 void initializePins() {
-  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
+  int i;
+  for (i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
     pinMode(US_PIN_IN[i], INPUT);
     pinMode(US_PIN_OUT[i], OUTPUT);
   }
-
-  for (int i = 0; i < sizeof(VIB_PIN) / sizeof(VIB_PIN[0]); i++) {
+  
+  for (i = 0; i < sizeof(VIB_PIN) / sizeof(VIB_PIN[0]); i++) {
     pinMode(VIB_PIN[i], OUTPUT);
   }
 }
@@ -142,7 +136,6 @@ void initializeTimers() {
   timer1 -> attachCallback(uartRead, UART_READ_PERIOD);
   timer1 -> attachCallback(imuRead, IMU_READ_PERIOD);
 
-  //timer2 -> attachCallback(irRead, SENSOR_READ_PERIOD);
   timer2 -> attachCallback(usRead, SENSOR_READ_PERIOD);
   timer2 -> attachCallback(vibWrite, VIB_WRITE_PERIOD);
   
@@ -207,17 +200,16 @@ void uartRead() {
 
 void imuRead() {
   sei(); // enable all Arduino interrupts for I2C interface utilized by IMU sensors
+  imu.read();
   imuAccRead();
   imuMagRead();
   imuBarRead();
 }
 
 void imuAccRead() {
-  accMag.read();
-
-  float accX = (float) accMag.a.x;
-  float accY = (float) accMag.a.y;
-  float accZ = (float) accMag.a.z;
+  float accX = (float) imu.a.x;
+  float accY = (float) imu.a.y;
+  float accZ = (float) imu.a.z;
 
   float accMagnitude = calculateMagnitude(accX, accY, accZ);
 
@@ -237,8 +229,7 @@ void imuAccRead() {
 }
 
 void imuMagRead() {
-  accMag.read();
-  imuValue[MAG_HEADING_INDEX] = accMag.heading();
+  imuValue[MAG_HEADING_INDEX] = imu.heading();
   if (imuValue[MAG_HEADING_INDEX] > MAG_THRESHOLD) {
      imuValue[MAG_HEADING_INDEX] = imuValue[MAG_HEADING_INDEX] - MAG_NORMALIZER;
   }
@@ -249,55 +240,48 @@ void imuBarRead() {
 }
 
 void usRead() {
-  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
+  int i = 0;
+  for (i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
     unsigned long echoDuration = pulse(US_PIN_OUT[i], US_PIN_IN[i]);
     usValue[i] = calculateDistance(echoDuration);
   }
-
+  
   Serial.println("US:");
-  for (int i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
+  for (i = 0; i < sizeof(US_PIN_IN) / sizeof(US_PIN_IN[0]); i++) {
     Serial.println(usValue[i]);
   }
   
   Serial.println();
-  //Serial.flush();
-}
-
-void irRead() {
-  for (int i = 0; i < sizeof(IR_PIN) / sizeof(IR_PIN[0]); i++) {
-    int divisor = analogRead(IR_PIN[i]);
-    if (divisor <= 3) {
-      irValue[i] = INFINITY;
-    } else {
-      irValue[i] = 6787.0 / (divisor - 3) - 4;
-    }
-  }
-
-  Serial.println("IR:");
-  for (int i = 0; i < sizeof(IR_PIN) / sizeof(IR_PIN[0]); i++) {
-    Serial.println(irValue[i]);
-  }
-
-  Serial.println();
-  //Serial.flush();
 }
 
 void vibWrite() {
   vibTurnOff(VIB_LEFT);
   vibTurnOff(VIB_FRONT);
   vibTurnOff(VIB_RIGHT);
+  vibTurnOff(VIB_ARM);
   
-  if ((usValue[US_LEFT] < US_THRESHOLD_DISTANCE && usValue[US_LEFT] > US_MINIMUM_DISTANCE) /*|| (irValue[IR_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_LEFT] > IR_MINIMUM_DISTANCE)*/) {
+  if (usValue[US_LEFT] < US_MAX_THRESHOLD[US_LEFT] && usValue[US_LEFT] > US_MIN_THRESHOLD[US_LEFT]) {
     vibTurnOn(VIB_LEFT);
   }
-  if ((usValue[US_RIGHT] < US_THRESHOLD_DISTANCE && usValue[US_RIGHT] > US_MINIMUM_DISTANCE) /*|| (irValue[IR_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
+
+  if (usValue[US_LEG_LEFT] < US_MAX_THRESHOLD[US_LEG_LEFT] && usValue[US_LEG_LEFT] > US_MIN_THRESHOLD[US_LEG_LEFT]) {
+    vibTurnOn(VIB_LEFT);
+  }
+  
+  if (usValue[US_RIGHT] < US_MAX_THRESHOLD[US_RIGHT] && usValue[US_RIGHT] > US_MIN_THRESHOLD[US_RIGHT]) {
     vibTurnOn(VIB_RIGHT);
   }
-  if ((usValue[US_FRONT_TOP] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_TOP] > US_MINIMUM_DISTANCE) || 
-      (usValue[US_FRONT_BOTTOM] < US_THRESHOLD_DISTANCE && usValue[US_FRONT_BOTTOM] > US_MINIMUM_DISTANCE)/* || 
-      (irValue[IR_FRONT_LEFT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_LEFT] > IR_MINIMUM_DISTANCE) || 
-      (irValue[IR_FRONT_RIGHT] < IR_THRESHOLD_DISTANCE && irValue[IR_FRONT_RIGHT] > IR_MINIMUM_DISTANCE)*/) {
+
+  if (usValue[US_LEG_RIGHT] < US_MAX_THRESHOLD[US_LEG_RIGHT] && usValue[US_LEG_RIGHT] > US_MIN_THRESHOLD[US_LEG_RIGHT]) {
+    vibTurnOn(VIB_RIGHT);
+  }
+  
+  if (usValue[US_FRONT] < US_MAX_THRESHOLD[US_FRONT] && usValue[US_FRONT] > US_MIN_THRESHOLD[US_FRONT]) {
     vibTurnOn(VIB_FRONT);
+  }
+
+  if (usValue[US_ARM] < US_MAX_THRESHOLD[US_ARM] && usValue[US_ARM] > US_MIN_THRESHOLD[US_ARM]) {
+    vibTurnOn(VIB_ARM);
   }
 }
 
@@ -312,7 +296,7 @@ void vibTurnOn(char id) {
 // Helper functions
 
 float calculateMagnitude(float x, float y, float z) {
-  return sqrt(pow(x,2) + pow(y,2) + pow(z,2));
+  return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
 }
 
 unsigned long pulse(int triggerPin, int echoPin) {
