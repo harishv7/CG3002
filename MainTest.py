@@ -22,9 +22,9 @@ class Constant:
 	# Navigation related parameters
 	EAST_TO_NORTH_ANGLE = 90
 	HEADING_ANGLE_TOLERANCE = 20
-	AVERAGE_STEP_DISTANCE = 65
+	AVERAGE_STEP_DISTANCE = 70
 	PROMPT_DELAY = 4
-	DISTANCE_FROM_NODE_THRESHOLD = 65
+	DISTANCE_FROM_NODE_THRESHOLD = 70
 
 	# Serial communication message codes
 	SYN_CODE = 0
@@ -578,7 +578,7 @@ def main():
 	port.flushInput()
 
 	# START OF HANDSHAKE PROTOCOL #
-	connection_state = Constant.DISCONNECTED_STATE
+	connection_state = Constant.CONNECTED_STATE
 	while (connection_state == Constant.DISCONNECTED_STATE or connection_state == Constant.SYNCHRONIZING_STATE):
 		if (connection_state == Constant.DISCONNECTED_STATE):
 			port, connection_state = send_synchronization(port, connection_state)
@@ -631,14 +631,14 @@ def main():
 	is_initial_data = True
 
 	while (connection_state == Constant.CONNECTED_STATE or connection_state == Constant.POLLING_STATE):
-		if (port.inWaiting() == 0):
-			continue
-		port, connection_state, data = receive_data(port, connection_state)
-		if (data is None):
-			continue
-		step_count = data[0]
-		heading_angle = data[1]
-		surface_height = data[2]
+		#if (port.inWaiting() == 0):
+		#	continue
+		#port, connection_state, data = receive_data(port, connection_state)
+		#if (data is None):
+		#	continue
+		step_count = int(input("Step count: "))
+		heading_angle = float(input("Heading angle: "))
+		surface_height = 0
 		print(step_count, heading_angle, surface_height)
 
 		rotate_direction = next_node.get_position().calculate_rotation_from(current_position, current_graph.calculate_graph_aligned_angle(heading_angle))
@@ -727,14 +727,10 @@ def main():
 						path_iter += 1
 						next_node = id_to_node_map[path[path_iter]]
 						path_iter += 1
-						current_position = last_node.get_position()
+						current_position = Point(last_node.get_position())
 				else:
 					next_node = id_to_node_map[path[path_iter]]
 					path_iter += 1
-
-			rotate_direction = next_node.get_position().calculate_rotation_from(current_position, current_graph.calculate_graph_aligned_angle(heading_angle))
-			walk_distance = Point.calculate_euclidean_distance(current_position, next_node.get_position())
-			num_steps = round(walk_distance / Constant.AVERAGE_STEP_DISTANCE, 1)
 
 			# Check if it is time to prompt the user
 			if (time.time() - last_prompt_time > Constant.PROMPT_DELAY):

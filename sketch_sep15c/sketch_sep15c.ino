@@ -16,7 +16,7 @@ const char US_PIN_IN[] = { 42, 44, 46, 48, 50, 52 }; // Connected to ECHO pins o
 const char US_PIN_OUT[] = { 43, 45, 47, 49, 51, 53 }; // Connected to TRIGGER pins of ultrasound sensors
 
 const int US_MIN_THRESHOLD[] = { 10, 10, 10, 10, 10, 10 };
-const int US_MAX_THRESHOLD[] = { 80, 120, 120, 100, 80, 120 };
+const int US_MAX_THRESHOLD[] = { 80, 100, 120, 100, 80, 100 };
 
 const char VIB_LEFT = 3, VIB_FRONT = 2, VIB_RIGHT = 1, VIB_ARM = 0;
 
@@ -47,8 +47,8 @@ const char BAR_VALUE_INDEX = 1;
 
 // Declaration of thresholds
 
-const float ACCELERATION_THRESHOLD = 21000;
-const float DECELERATION_THRESHOLD = 13000;
+const float ACCELERATION_THRESHOLD = 20000;
+const float DECELERATION_THRESHOLD = 12500;
 
 const float MAG_THRESHOLD = 180;
 const float MAG_NORMALIZER = 360;
@@ -100,9 +100,9 @@ void setup() {
     Serial.println("Failed to autodetect accmag!");
   }
   imu.enableDefault();
-  Serial.println("Successful");
-  // Serial.flush();
 
+  // imu.m_min = (LSM303::vector<int16_t>){-2187, -1995, -2991};
+  // imu.m_max = (LSM303::vector<int16_t>){+3380, +2820, +2036};
   imu.m_min = (LSM303::vector<int16_t>){-1832, -2342, -1505};
   imu.m_max = (LSM303::vector<int16_t>){+2278, +2042, +2726};
   
@@ -196,35 +196,38 @@ void uartRead() {
 
 void imuRead() {
   sei(); // enable all Arduino interrupts for I2C interface utilized by IMU sensors
-  imu.read();
   imuAccRead();
   imuMagRead();
   imuBarRead();
 }
 
 void imuAccRead() {
+  imu.read();
   float accX = (float) imu.a.x;
   float accY = (float) imu.a.y;
   float accZ = (float) imu.a.z;
 
   float accMagnitude = calculateMagnitude(accX, accY, accZ);
 
-  if (flag && (millis() - lastAccelerationTime >= 500)) {
-    flag = false;
-  }
-
   if (accMagnitude >= ACCELERATION_THRESHOLD) {
     if (!flag) {
+      Serial.println("Hit");
       pedoValue++;
       flag = true;
       lastAccelerationTime = millis();
     }
-  } else if (flag && accMagnitude <= DECELERATION_THRESHOLD) {
+  }
+
+  if (flag && (millis() - lastAccelerationTime >= 400 || accMagnitude <= DECELERATION_THRESHOLD)) {
+    Serial.println("Reset");
     flag = false;
   }
+
+  Serial.flush();
 }
 
 void imuMagRead() {
+  imu.read();
   imuValue[MAG_HEADING_INDEX] = imu.heading();
   if (imuValue[MAG_HEADING_INDEX] > MAG_THRESHOLD) {
      imuValue[MAG_HEADING_INDEX] = imuValue[MAG_HEADING_INDEX] - MAG_NORMALIZER;
